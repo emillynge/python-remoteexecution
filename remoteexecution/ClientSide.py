@@ -39,20 +39,20 @@ class Client(object):
         comm_env = communication_environment()
         host, port = comm_env.client2manager_tunnel()
         p = Pyro4.config
-        WrappedProxy('remote_execution.manager', comm_env.manager_host, comm_env.manager_port)
+        WrappedProxy('remote_execution.manager', comm_env.manager_host, comm_env.manager_port, logger=self.logger)
 
         self.manager_proxy = WrappedProxy('remote_execution.manager', host, port)
         if not self.manager_proxy.is_alive():
             self.logger.error('could not start manager')
             raise Exception("Could not start manager")
-        self.logger.debug("Successfully connected to Qsub manager on {0}".format(port))
+        self.logger.info("Successfully connected to Qsub manager on {0}".format(port))
 
     def instance_generator(self, object_descriptor=None, rel_dir=".", **requested_resources):
         script_generator = execution_environment().script_generator
         script_generator.logger = self.logger.duplicate(logger_name='Script')
         assert isinstance(script_generator, (HPCScriptGenerator, SimpleScriptGenerator))
         script_generator.execution_settings(rel_dir=rel_dir, **requested_resources)
-        instance = RemoteInstance(self.manager_proxy, self, logger=self.logger.duplicate(logger_name='Instance'),
+        instance = RemoteInstance(self.manager_proxy, self, logger=self.logger,
                        object_descriptor=object_descriptor, script_generator=script_generator)
         return instance
 
@@ -258,6 +258,7 @@ class HPCScriptGenerator(BaseScriptGenerator):
 class RemoteInstance(object):
     def __init__(self, manager_proxy, client, script_generator, logger=DummyLogger(), object_descriptor=None):
         assert isinstance(client, Client)
+
         self.args = tuple()
         self.kwargs = tuple()
         self.obj_descriptor = object_descriptor
@@ -265,7 +266,8 @@ class RemoteInstance(object):
         self.client = client
         self.script_generator = script_generator
         (self.sub_id, self.logfile) = self.manager_proxy.sub_id_request()
-        self.client.logger.info("sub_id {0} received".format(self.sub_id))
+        self.logger = logger.duplicate(logger_name='Instance {0}'.format(self.sub_id))
+        self.logger.info("sub_id {0} received".format(self.sub_id))
         self.remote_obj = None
         self.executor_local_host = None
         self.executor_local_port = None
@@ -274,11 +276,12 @@ class RemoteInstance(object):
         self.submitted = False
         self.execution_controller = None
         self.stage_submission()
-        self.logger = logger
+
 
     def __call__(self, *args, **kwargs):
         self.args = args
         self.kwargs = kwargs
+        return self
 
     def stage_submission(self):
         kwargs = {'manager_ip': communication_environment().manager_host,
@@ -292,7 +295,7 @@ class RemoteInstance(object):
     def make_tunnel(self):
         if self.proxy_info:
             comm_env = communication_environment()
-            self.executor_local_host, self.executor_local_port = comm_env.client2executor_tunnel(self.proxy_info['ip'],
+            self.executor_local_host, self.executor_local_port = comm_env.client2executor_tunnel(self.proxy_info['host'],
                                                                                                  self.proxy_info['port'])
         else:
             raise Exception('Cannot make tunnel without a ready executor. Have you submitted?')
@@ -304,8 +307,8 @@ class RemoteInstance(object):
             self._get_execution_controller()
 
     def _get_execution_controller(self):
-        self.execution_controller = WrappedProxy('PYRO:remote_execution.executor.controller@{0}:{1}'.format(self.executor_local_host,
-                                                                                                            self.executor_local_port))
+        self.execution_controller = WrappedProxy('remote_execution.executor.controller', self.executor_local_host,
+                                                 self.executor_local_port, logger=self.logger.duplicate(append_name='Exec'))
 
     def make_obj(self, obj_descriptor):
         if not all([self.manager_proxy.in_state(self.sub_id, 'ready'), self.execution_controller]):
@@ -329,9 +332,8 @@ class RemoteInstance(object):
                                    found=obj_descriptor)
 
     def _get_obj(self, obj_info):
-        return WrappedProxy('PYRO:{0}@{1}:{2}'.format(obj_info['object_id'],
-                                                      self.executor_local_host,
-                                                      self.executor_local_port))
+        return WrappedProxy(obj_info['object_id'], self.executor_local_host, self.executor_local_port,
+                            logger=self.logger.duplicate(append_name='RemoteObj'))
 
     def wait_for_state(self, target_state, iter_limit=100):
         state, t = self.manager_proxy.sub_stat(self.sub_id)
@@ -369,7 +371,8 @@ class RemoteInstance(object):
         if not self.orphan and self.submitted:
             try:
                 self.manager_proxy.sub_shut(self.sub_id)
-            except Exception:
+            except Exception as e:
+                self.logger.warning('Error during sub shut: {0}'.format(e.message))
                 ex_env = execution_environment()
                 Popen(ex_env.client_command_line_prefix.split(' ') + ['-r', 'stop', 'executor',
                                                                       'sub_id={0}'.format(self.sub_id)])

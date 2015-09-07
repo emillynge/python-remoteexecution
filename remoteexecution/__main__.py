@@ -2,5 +2,9 @@ from __future__ import (absolute_import, print_function, unicode_literals, divis
 from .Environments import EnvironmentFactory
 from .Utils import Commandline
 __author__ = 'emil'
-if __name__ == '__main__':
+
+def main():
     Commandline().__call__()
+
+if __name__ == '__main__':
+    main()

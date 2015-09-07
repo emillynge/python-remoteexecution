@@ -1,4 +1,4 @@
-from distutils.core import setup
+from setuptools import setup
 
 setup(
     name='remoteexecution',
@@ -8,5 +8,8 @@ setup(
     license='GNU General Public License v3.0',
     author='Emil Sauer Lynge',
     author_email='',
-    description='Execute remotely using a manager to start submits'
-)
+    description='Execute remotely using a manager to start submits',
+    entry_points = {
+    'console_scripts': [
+        'remote-exec-cli = remoteexecution.__main__:main',
+    ]})

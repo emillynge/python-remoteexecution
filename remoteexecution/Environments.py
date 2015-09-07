@@ -7,16 +7,23 @@ import os
 from copy import deepcopy
 import json
 from subprocess import (Popen, PIPE)
+from jsoncodecs import (build_codec, HANDLERS)
 import re
 from collections import (namedtuple, defaultdict)
 from functools import partial
 FNULL = open(os.devnull, 'w')
 
 def set_default():
-    EnvironmentFactory.set_environments(communication=CommAllOnSameMachine, execution=ExecTest)
+    EnvironmentFactory.set_environments(communication=CommAllOnSameMachine, execution=ExecTest,
+                                        serializer=SerializingEnvironment)
     EnvironmentFactory.set_settings(manager_work_dir=os.path.abspath('.'), manager_port=5000,
-                                    manager_interpreter='python', manager_target='RemoteExecution',
+                                    manager_interpreter='python2', manager_target='remote-exec-cli',
                                     pyro_serializer='serpent')
+
+def serializing_environment():
+    env_obj = EnvironmentFactory.get_environment('serializer')
+    assert isinstance(env_obj, (SerializingEnvironment))
+    return env_obj
 
 def communication_environment():
     env_obj = EnvironmentFactory.get_environment('communication')
@@ -149,6 +156,7 @@ class Environment(object):
 
     def __repr__(self):
         return '{"' + self.__class__.__module__ + '":"' + self.__class__.__name__ + '"}'
+
 
 
 class _CommunicationRequired(Environment):
@@ -289,7 +297,8 @@ class CommunicationEnvironment(_CommunicationOptionals, _CommunicationRequired):
 
     # This one is inferred and should not be overridden
     def client2executor_tunnel(self, executor_host, executor_port):
-        manager_host_binding, manager_port_binding = self.client2manager_proxy.comm_env_call('manager2executor_tunnel',
+        manager_host_binding, manager_port_binding = self.client2manager_proxy.env_call('communication',
+                                                                                        'manager2executor_tunnel',
                                                                                              executor_host,
                                                                                              executor_port)
         host, port = self.client2manager_tunnel(manager_host=manager_host_binding, manager_port=manager_port_binding)
@@ -298,7 +307,8 @@ class CommunicationEnvironment(_CommunicationOptionals, _CommunicationRequired):
 
     # This one is inferred and should not be overridden
     def executor2client_tunnel(self, client_host, client_port):
-        manager_host_binding, manager_port_binding = self.executor2manager_proxy.comm_env_call('manager2client_tunnel',
+        manager_host_binding, manager_port_binding = self.executor2manager_proxy.env_call('communication',
+                                                                                           'manager2client_tunnel',
                                                                                                client_host,
                                                                                                client_port)
         host, port = self.executor2manager_tunnel(manager_host=manager_host_binding, manager_port=manager_port_binding)
@@ -546,15 +556,15 @@ class ExecutionEnvironment(Environment):
 
     @property
     def client_command_line_prefix(self):
-        return '{0} -m {1} -E \'{2}\''.format(self.client_interpreter, self.client_target, EnvironmentFactory.cls_repr())
+        return '{1} -E \'{2}\''.format(self.client_interpreter, self.client_target, EnvironmentFactory.cls_repr())
 
     @property
     def manager_command_line_prefix(self):
-        return '{0} -m {1} -E \'{2}\''.format(self.manager_interpreter, self.manager_target, EnvironmentFactory.cls_repr())
+        return '{1} -E \'{2}\''.format(self.manager_interpreter, self.manager_target, EnvironmentFactory.cls_repr())
 
     @property
     def executor_command_line_prefix(self):
-        return '{0} -m {1} -E \'{2}\''.format(self.executor_interpreter, self.executor_target, EnvironmentFactory.cls_repr())
+        return '{1} -E \'{2}\''.format(self.executor_interpreter, self.executor_target, EnvironmentFactory.cls_repr())
 
     @abc.abstractmethod
     def execute(self, commands, communicate=False):
@@ -742,3 +752,45 @@ class QsubExecution(ExecutionEnvironment):
 
 class ExecTest(ExecAllOnSameMachine, PopenExecution):
     pass
+
+
+class SerializingEnvironment(Environment):
+    def __init__(self):
+        self.serialize_wrapper = True
+        self.codec_handlers = HANDLERS
+        self.key_typecasts = list()
+        self._decoder = None
+        self._encoder = None
+        self.codec = None
+        super(SerializingEnvironment, self).__init__()
+
+    def build_codec(self):
+        (enc, dec) = build_codec('RemoteExec', *tuple(self.codec_handlers))
+
+        def encoder(obj):
+            return json.dumps(obj, cls=enc)
+        self._encoder = encoder
+
+        def decoder(obj):
+            return json.loads(obj, cls=dec, key_typecasts=self.key_typecasts)
+        self._decoder = decoder
+
+    @property
+    def encoder(self):
+        if not self._encoder:
+            self.build_codec()
+        return self._encoder
+
+    @property
+    def decoder(self):
+        if not self._decoder:
+            self.build_codec()
+        return self._decoder
+
+
+def set_settings(self, **settings):
+    _settings = self.set_attribute_if_in_settings('codec_handlers',
+                                                  'key_typercasts',
+                                                  **settings)
+
+    super(SerializingEnvironment, self).set_settings(**_settings)

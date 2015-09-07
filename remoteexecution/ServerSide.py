@@ -22,7 +22,7 @@ class Manager(EnvironmentCallMixin, object):
                            'shutdown': 4.5,
                            'completed': 5,
                            'orphaned': 6}
-        self.logger = logger or DummyLogger()
+        self.logger = logger.duplicate(logger_name='Manager') if logger else DummyLogger()
         self.running = False
         self.latest_sub_id = -1
         self.subs = defaultdict(dict)
@@ -31,9 +31,12 @@ class Manager(EnvironmentCallMixin, object):
         self.ip = comm_env.my_ip
         self.log_dir = ex_env.manager_work_dir + '/manlogs/'
         self.work_dir = ex_env.manager_work_dir
+        if not os.path.isdir(self.work_dir + os.sep + 'subs'):
+            os.mkdir(self.work_dir + os.sep + 'subs')
+
         self.running = True
         self.pid = os.getpid()
-        self.logger.info("Manager started on {0}".format(self.ip))
+        self.logger.info("Manager started on {0} with pid {1}".format( self.ip, self.pid))
 
     def read_file(self, file_name):
         with open(file_name, 'r') as fp:
@@ -52,11 +55,11 @@ class Manager(EnvironmentCallMixin, object):
         """
         if not self.has_reached_state(sub_id, 'submitted'):
             self.subs['state'] = 'completed'
-            self.logger.debug('Trashing staged submit {0}'.format(sub_id))
+            self.logger.info('Trashing staged submit {0}'.format(sub_id))
             return 0
 
         if self.in_state(sub_id, 'queued'):
-            self.logger.debug('dequeueing submit {0}'.format(sub_id))
+            self.logger.info('dequeueing submit {0}'.format(sub_id))
             self.sub_del(sub_id)
             return 0    # Killed because it was still in queue
 
@@ -68,7 +71,11 @@ class Manager(EnvironmentCallMixin, object):
                 self.sub_del(sub_id)
                 return 1
 
-            controller = WrappedProxy('remote_execution.executor.controller', **self.subs[sub_id]['proxy_info'])
+            controller = WrappedProxy('remote_execution.executor.controller',
+                                      self.subs[sub_id]['proxy_info']['host'],
+                                      self.subs[sub_id]['proxy_info']['port'],
+                                      logger=self.logger.duplicate(append_name='Exec'))
+
             controller.shutdown()   #   putting submit into shutdown state
             self.subs[sub_id]['state'] = 'shutdown'
 
@@ -77,7 +84,7 @@ class Manager(EnvironmentCallMixin, object):
             self.sub_del(sub_id)
             return 1
 
-        self.logger.debug('graceful shutdown of submit {0} successful'.format(sub_id))
+        self.logger.info('graceful shutdown of submit {0} successful'.format(sub_id))
         return 0
 
     def sub_del(self, sub_id):
@@ -86,7 +93,7 @@ class Manager(EnvironmentCallMixin, object):
         :param sub_id: int - submission id
         :return: None
         """
-        self.logger.debug('Trying to remove submit {0}'.format(sub_id))
+        self.logger.info('Trying to remove submit {0}'.format(sub_id))
         if sub_id in self.subs:
             if 'job_id' in self.subs[sub_id]:
                 ex_env = execution_environment()
@@ -140,16 +147,16 @@ class Manager(EnvironmentCallMixin, object):
             raise Exception('Cannot submit twice')
         ex_env = execution_environment()
         job_id = str(ex_env.job_start(self.subid2sh(sub_id)))
-        self.logger.debug('Startetd job', job_id)
+        self.logger.debug('Started job'.format(job_id))
         self.subs[sub_id]['job_id'] = job_id
         self.subs[sub_id]['state'] = 'submitted'
-        self.logger.debug('starting submit {0}'.format(sub_id))
+        self.logger.info('starting submit {0}'.format(sub_id))
         return self.sub_stat(sub_id)
 
     def set_proxy_info(self, sub_id, daemon_ip, daemon_port):
         self.subs[sub_id]['proxy_info'] = {'host': daemon_ip, 'port': int(daemon_port)}
         self.subs[sub_id]['state'] = 'ready'
-        self.logger.debug('proxy info on submit {0} recieved: {host}:{port}'.format(sub_id,
+        self.logger.info('proxy info on submit {0} recieved: {host}:{port}'.format(sub_id,
                                                                                     **self.subs[sub_id]['proxy_info']))
 
     def get_proxy_info(self, sub_id):
@@ -214,7 +221,7 @@ class Manager(EnvironmentCallMixin, object):
 
     @staticmethod
     def subid2sh(sub_id):
-        return 'qsubs/{0}.sh'.format(sub_id)
+        return 'subs/{0}.sh'.format(sub_id)
 
     def logfile(self, sub_id):
         return '{0}/{1}'.format(self.log_dir, sub_id)

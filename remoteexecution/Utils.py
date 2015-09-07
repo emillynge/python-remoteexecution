@@ -18,7 +18,7 @@ import Pyro4
 from Pyro4 import errors as pyro_errors
 from Pyro4 import util as pyro_util
 from functools import partial
-from .Environments import (EnvironmentFactory, communication_environment, execution_environment)
+from .Environments import (EnvironmentFactory, communication_environment, execution_environment, serializing_environment)
 from .Environments import set_default as default_environment
 __author__ = 'emil'
 from sshtunnel import SSHTunnelForwarder, address_to_str
@@ -28,7 +28,6 @@ import abc
 from StringIO import StringIO
 from hashlib import md5
 from random import random
-
 
 
 class ShellOverwrite(object):
@@ -342,7 +341,9 @@ class RemoteExecutionLogger(object):
             if item[:2] != '__':
                 setattr(self, item, getattr(self.logger, item))
 
-    def duplicate(self, **overwrites):
+    def duplicate(self, append_name=None, **overwrites):
+        if append_name:
+            overwrites['logger_name'] = self.settings.get('logger_name', '?') + ' - ' + append_name
         _settings = dict()
         _settings.update(self.settings)
         _settings.update(overwrites)
@@ -431,11 +432,10 @@ class Commandline(object):
             else:
                 self.argv = commands[0].split(' ')
             self.args = self.parse_args()
-            self.set_environment()
         else:
             self.argv = sys.argv[1:]
             self.args = self.parse_args()
-            self.set_environment()  # if we take from sys.argv then environment in uninstantiated!
+            self.set_environment()
             self.logger = self.create_logger()
 
         if self.args.remote:
@@ -530,10 +530,9 @@ class Commandline(object):
     def execute_return(self, result):
         self.stdout('return', result)
 
-    @staticmethod
-    def get_manager_from_manager_side():
+    def get_manager_from_manager_side(self):
         comm_env = communication_environment()
-        return WrappedProxy('remote_execution.manager', comm_env.manager_host, comm_env.manager_port)
+        return WrappedProxy('remote_execution.manager', comm_env.manager_host, comm_env.manager_port, logger=self.logger)
 
     def get_kwargs(self, *kwargs_fields):
         int_casts = ['sub_id', 'port']
@@ -572,9 +571,9 @@ class Commandline(object):
         self.logger.debug("Initializing manager")
         daemon = WrappedDaemon(port=comm_env.manager_port, host=comm_env.manager_host)
         self.logger.debug("Init Manager")
-        manager_logger = self.logger.duplicate(logger_name='Manager')
-        manager = WrappedObject(Manager(logger=manager_logger), logger=manager_logger)
-        daemon.register(manager, "remote_execution.manager")
+        manager = Manager(logger=self.logger)
+        wrapped_manager = WrappedObject(manager, logger=self.logger)
+        daemon.register(wrapped_manager, "remote_execution.manager")
         self.logger.info("putting manager in request loop")
         self.stdout('blocking', datetime.datetime.now().isoformat())
         daemon.requestLoop(loopCondition=manager.is_alive)
@@ -690,7 +689,7 @@ class RemoteCommandline(Commandline):
         if blocking:
             full_command += 'nohup '
 
-        full_command += "{0} -m {1} ".format(self.interpreter, self.target)
+        full_command += "{1} ".format(self.interpreter, self.target)
         full_command += "-E '{0}' ".format(EnvironmentFactory.cls_repr())
         full_command += ' '.join(self.argv)
 
@@ -861,14 +860,7 @@ class WrappedDaemon(Pyro4.Daemon):
 
 
 class WrappedObject(object):
-    def __init__(self, obj, logger=None):
-        assert isinstance(logger, (RemoteExecutionLogger, DummyLogger))
-        if logger:
-            logger_name = logger.settings.get('logger_name', '?')
-            logger_name += ' - ObjWrapper'
-            self.logger = logger.duplicate(logger_name=logger_name)
-        else:
-            self.logger = DummyLogger()
+    def __init__(self, obj, logger=DummyLogger()):
         methods = set(m for m in dir(obj) if m[0] != '_' and hasattr(getattr(obj, m), '__call__'))
         logger.debug(methods)
         attrs = set()
@@ -892,12 +884,47 @@ class WrappedObject(object):
                               "oneway": oneway,
                               "attrs": attrs}
 
+        self.logger = logger.duplicate(append_name='OWrap')
+        self.logger.debug('Logger created')
+        self._tickets = defaultdict(dict)
+
     def __getattribute__(self, item):
         if item in super(WrappedObject, self).__getattribute__('QSUB_metadata')['methods']:
+            ser_env = serializing_environment()
+
             def call(*args, **kwargs):
+                ticket = args[0]
+                faf = args[1]
+                state = self._tickets[ticket].get('state', 'first')
+                if state != 'first':
+                    self.logger.debug('Already called with ticket {0}. Waiting...'.format(ticket))
+                    while self._tickets[ticket]['state'] == 'running':
+                        sleep(1)
+                    if self._tickets[ticket]['state'] == 'error':
+                        self.logger.warning('Encountered exception during wait')
+                        raise self._tickets[ticket]['error']
+                    self.logger.debug('Returning saved result to ticket {0}.'.format(ticket))
+                    return self._tickets[ticket]['result']
+
+                args = args[2:]
+                self.logger.debug('Calling local method {2} with : {0} , {1}'.format(truncate_object(args),
+                                                                                     truncate_object(kwargs), item))
+                if ser_env.serialize_wrapper:
+                    decoded = ser_env.decoder(*args)
+                    args = tuple(decoded['args'])
+                    kwargs = dict((bytes(k), v) for k, v in decoded['kwargs'].iteritems())
                 try:
-                    return super(WrappedObject, self).__getattribute__(item).__call__(*args, **kwargs)
+                    self._tickets[ticket]['state'] = 'running'
+                    result = super(WrappedObject, self).__getattribute__(item).__call__(*args, **kwargs)
+                    self.logger.debug('Recieved {1} from local method {0}'.format(item, truncate_object(result)))
+                    if ser_env.serialize_wrapper:
+                        result = ser_env.encoder(result)
+                    self._tickets[ticket]['result'] = result
+                    self._tickets[ticket]['state'] = 'done'
+                    return result
                 except Exception as e:
+                    self._tickets['state'] = 'error'
+                    self._tickets['error'] = e
                     self.logger.error('Exception during function call', exc_info=True)
                     raise e
 
@@ -905,17 +932,17 @@ class WrappedObject(object):
         else:
             return super(WrappedObject, self).__getattribute__(item)
 
-def WrappedProxy(uri, *address, **kwargs):
-    if address:
-        uri += '@{0}:{1}'.format(*address)
-    elif kwargs:
-        uri += '@{host}:{port}'.format(**kwargs)
+def WrappedProxy(uri, host, port, logger=DummyLogger()):
+    if host and port:
+        uri += '@{0}:{1}'.format(host, port)
     proxy = Pyro4.Proxy('PYRO:' + uri)
-    return wrap_proxy(proxy)
+    return wrap_proxy(proxy, logger=logger)
 
 
 # noinspection PyProtectedMember
-def wrap_proxy(pyro_proxy):
+def wrap_proxy(pyro_proxy, logger=DummyLogger()):
+    _logger = logger.duplicate(append_name='PWrap')
+    assert isinstance(pyro_proxy, Pyro4.Proxy)
     pyro_proxy._pyroGetMetadata()
     props = defaultdict(dict)
     in_props = defaultdict(dict)
@@ -925,6 +952,7 @@ def wrap_proxy(pyro_proxy):
         return self._props[action][propname].__call__(*args)
 
     for method_name in pyro_proxy._pyroMethods:
+        assert isinstance(pyro_proxy, Pyro4.Proxy)
         regexp = re.findall('^QSUB_((fget)|(fset)|(fdel))_(.+$)', method_name)
         if regexp:
             props[regexp[0][-1]][regexp[0][0]] = pyro_proxy.__getattr__(method_name)
@@ -935,18 +963,36 @@ def wrap_proxy(pyro_proxy):
     class WrappedProxy(object):
         def __init__(self, _props):
             self._props = _props
+            self._faf = False
+
+        def set_timeout(self, timeout):
+            pyro_proxy._pyroTimeout = timeout
+
+        def set_fire_and_forget(self, faf):
+            self._faf = faf
 
         # noinspection PyUnboundLocalVariable
         def __getattribute__(self, item):
             if item in methods:
+                ser_env = serializing_environment()
                 # noinspection PyShadowingNames
                 def call(*args, **kwargs):
+                    ticket = md5(str(random())).hexdigest()
+                    _logger.debug('Calling remote method {0} with {1}, {2}'.format(item, truncate_object(args),
+                                                                                   truncate_object(kwargs)))
+                    if ser_env.serialize_wrapper:
+                        args = (ser_env.encoder({'args': args, 'kwargs': kwargs}),)
+                        kwargs = dict()
                     retries = 0
                     while retries < 5:
                         try:
-                            return super(WrappedProxy, self).__getattribute__(item).__call__(*args, **kwargs)
+                            result = super(WrappedProxy, self).__getattribute__(item).__call__(ticket, self._faf, *args, **kwargs)
+                            _logger.debug('Recieved {1} from remote method {0}'.format(item, truncate_object(result)))
+                            if ser_env.serialize_wrapper:
+                                result = ser_env.decoder(result)
+                            return result
                         except pyro_errors.CommunicationError as e:
-                            pass
+                            _logger.warning('Retrying: {0}'.format(e.message))
                         retries += 1
                         sleep(.1)
                     raise e
@@ -1000,3 +1046,19 @@ class Timer(object):
     def timed_out(self):
         return self.elapsed > self.timeout > 0
 
+
+def truncate_object(obj):
+    if isinstance(obj, dict):
+        return dict((key, truncate_object(val)) for key, val in obj.iteritems())
+
+    if isinstance(obj, list):
+        return list(truncate_object(e) for e in obj)
+
+    if isinstance(obj, tuple):
+        return tuple(truncate_object(e) for e in obj)
+
+    if isinstance(obj, (basestring, bytearray)):
+        if len(obj) > 70:
+            return obj[:30] + b'...' + obj[-30:]
+        return obj
+    return obj
