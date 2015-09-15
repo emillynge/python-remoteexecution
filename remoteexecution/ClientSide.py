@@ -39,9 +39,8 @@ class Client(object):
         comm_env = communication_environment()
         host, port = comm_env.client2manager_tunnel()
         p = Pyro4.config
-        WrappedProxy('remote_execution.manager', comm_env.manager_host, comm_env.manager_port, logger=self.logger)
-
-        self.manager_proxy = WrappedProxy('remote_execution.manager', host, port)
+        self.manager_proxy = WrappedProxy('remote_execution.manager', host, port,
+                                          logger=self.logger.duplicate(append_name='Manager'))
         if not self.manager_proxy.is_alive():
             self.logger.error('could not start manager')
             raise Exception("Could not start manager")
