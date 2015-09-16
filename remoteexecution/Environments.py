@@ -426,6 +426,30 @@ class Client2ManagerThroughSSH(SSHMixin, CommunicationEnvironment):
         cli = RemoteCommandline(ssh_instance_generator, ex_env.manager_interpreter, ex_env.manager_target)
         return cli
 
+class Executor2ManagerThroughSSH(SSHMixin, CommunicationEnvironment):
+    def __init__(self):
+        self.executor2manager_ssh_settings = None
+        super(Executor2ManagerThroughSSH, self).__init__()
+
+    def set_settings(self, ssh_executor2manager=None, **settings):
+        self.executor2manager_ssh_settings = ssh_executor2manager
+        self.is_attr_set('client2manager_ssh_settings', dict)
+        super(Executor2ManagerThroughSSH, self).set_settings(**settings)
+
+    def executor2manager_tunnel(self, manager_host=None, manager_port=None):
+        self.my_location = 'client'
+        manager_host = manager_host or self.manager_host
+        manager_port = manager_port or self.manager_port
+        return self.make_tunnel(self.executor2manager_ssh_settings, remote_bind_address=(manager_host, manager_port))
+
+    def make_remote_cli_executor2manager(self):
+        ex_env = execution_environment()
+
+        def ssh_instance_generator():
+            self.ssh_prompt(self.executor2manager_ssh_settings, ex_env.manager_work_dir)
+        cli = RemoteCommandline(ssh_instance_generator, ex_env.manager_interpreter, ex_env.manager_target)
+        return cli
+
 
 class Manager2ExecutorThroughSSH(SSHMixin, CommunicationEnvironment):
     def __init__(self):
