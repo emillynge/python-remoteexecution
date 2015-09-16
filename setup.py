@@ -11,7 +11,6 @@ setup(
     author_email='',
     zip_safe = False,
     description='Execute remotely using a manager to start submits',
-    install_requires=['jsoncodecs'],
     dependency_links=['https://github.com/emillynge/python-jsoncodecs/tarball/master'],
     entry_points={
     'console_scripts': [
