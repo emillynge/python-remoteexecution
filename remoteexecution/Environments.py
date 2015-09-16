@@ -591,12 +591,6 @@ class ExecutionEnvironment(Environment):
         return '{1} -E \'{2}\''.format(self.executor_interpreter, self.executor_target, EnvironmentFactory.cls_repr())
 
     @abc.abstractmethod
-    def execute(self, commands, communicate=False):
-        assert isinstance(commands, list)
-        output = self.output_cls()
-        return output
-
-    @abc.abstractmethod
     def job_start(self, execution_script_location):
         job_id = str()
         return job_id
@@ -611,11 +605,6 @@ class ExecutionEnvironment(Environment):
         output = self.output_cls()
         return output
 
-    @abc.abstractmethod
-    def path_exists(self, executor_work_dir):
-        exists = bool()
-        return exists
-
     @abc.abstractproperty
     def script_generator(self):
         return BaseScriptGenerator()
@@ -629,15 +618,6 @@ class ExecManagerAndExecutorOnSameMachine(ExecutionEnvironment):
         self.executor_interpreter = self.manager_interpreter
         self.executor_target = self.manager_target
         super(ExecManagerAndExecutorOnSameMachine, self).set_settings(**_settings)
-
-    def path_exists(self, path):
-        return os.path.exists(path)
-
-    def execute(self, commands, communicate=False):
-        p = Popen(commands, stdout=PIPE, stderr=PIPE)
-        if communicate:
-            return self.output_cls(p.communicate())
-        return self.output_cls(stderr=p.stderr, )
 
 
 class ExecClientAndManagerOnSameMachine(ExecutionEnvironment):
