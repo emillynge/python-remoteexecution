@@ -11,7 +11,8 @@ setup(
     author_email='',
     zip_safe = False,
     description='Execute remotely using a manager to start submits',
-    dependency_links=['https://github.com/emillynge/python-jsoncodecs/tarball/master'],
+    install_requires=['jsoncodecs'],
+    dependency_links=['https://github.com/emillynge/python-jsoncodecs/tarball/master#egg=jsoncodecs-0.1'],
     entry_points={
     'console_scripts': [
         'remote-exec-cli = remoteexecution.__main__:main',
