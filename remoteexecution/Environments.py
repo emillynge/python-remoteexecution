@@ -1,7 +1,7 @@
 from __future__ import (absolute_import, print_function, unicode_literals, division)
 __author__ = 'emil'
 import abc
-import pxssh
+from pexpect import pxssh
 import Pyro4
 import os
 from copy import deepcopy

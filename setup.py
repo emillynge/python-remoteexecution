@@ -9,8 +9,10 @@ setup(
     license='GNU General Public License v3.0',
     author='Emil Sauer Lynge',
     author_email='',
+    zip_safe = False,
     description='Execute remotely using a manager to start submits',
-    entry_points = {
+    dependency_links=['https://github.com/emillynge/python-jsoncodecs/tarball/master#egg=jsoncodecs-0.1'],
+    entry_points={
     'console_scripts': [
         'remote-exec-cli = remoteexecution.__main__:main',
     ]})
