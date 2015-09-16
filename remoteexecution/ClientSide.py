@@ -259,7 +259,7 @@ class RemoteInstance(object):
         assert isinstance(client, Client)
 
         self.args = tuple()
-        self.kwargs = tuple()
+        self.kwargs = dict()
         self.obj_descriptor = object_descriptor
         self.manager_proxy = manager_proxy
         self.client = client
