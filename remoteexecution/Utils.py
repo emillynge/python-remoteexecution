@@ -1,7 +1,6 @@
 from __future__ import (absolute_import, print_function, unicode_literals, division)
 from collections import defaultdict, namedtuple
 import threading
-from boltons import tbutils
 import sys
 import re
 from importlib import import_module
@@ -9,22 +8,24 @@ from argparse import ArgumentParser
 import datetime
 import logging
 from time import (sleep, time)
+
+from boltons import tbutils
 import Pyro4
+
 Pyro4.config.COMMTIMEOUT = 5.0  # without this daemon.close() hangs
-from Pyro4 import errors as pyro_errors
 import os
 import json
 import Pyro4
 from Pyro4 import errors as pyro_errors
 from Pyro4 import util as pyro_util
 from functools import partial
-from .Environments import (EnvironmentFactory, communication_environment, execution_environment, serializing_environment)
+from .Environments import (EnvironmentFactory, communication_environment, serializing_environment)
 from .Environments import set_default as default_environment
+
 __author__ = 'emil'
 from sshtunnel import SSHTunnelForwarder, address_to_str
 from pxssh import pxssh
 from pexpect import spawn
-import abc
 from StringIO import StringIO
 from hashlib import md5
 from random import random
@@ -86,13 +87,14 @@ class SSHOutPipe(StringIO):
         self.ssh_session = ssh_session
         self.io_file = io_file
         self.io_file_open = True
+        # noinspection PyTypeChecker,PyTypeChecker
         StringIO.__init__(self)
 
     def fill_buffer(self):
         if not self.io_file_open:
             return None
         start_tag = md5(str(random())).hexdigest()  # len=32
-        end_tag = md5(str(random())).hexdigest()    # len=32
+        end_tag = md5(str(random())).hexdigest()  # len=32
         self.ssh_session.send_python_script(["fp = open('{0}', 'r')".format(self.io_file),
                                              "fp.seek({0})".format(self.len),
                                              "end = '{0}'".format(end_tag),
@@ -102,7 +104,6 @@ class SSHOutPipe(StringIO):
         self.ssh_session.expect('{0}.*{1}'.format(start_tag, end_tag))
         self.write(self.ssh_session.after[32:-32])
         self.ssh_session.prompt()
-
 
     def read(self, **kwargs):
         pos = self.pos
@@ -117,7 +118,9 @@ class SSHOutPipe(StringIO):
 
 
 class SSHPopen(object):
-    def __init__(self, commands, work_dir='.', ssh_prompt=None, ssh_settings=None, stdout=None, stderr=None, stdin=None):
+    # noinspection PyUnusedLocal
+    def __init__(self, commands, work_dir='.', ssh_prompt=None, ssh_settings=None, stdout=None, stderr=None,
+                 stdin=None):
         self.ssh_session = ssh_prompt
         if not ssh_prompt:
             self.ssh_session = SSHPrompt()
@@ -190,8 +193,8 @@ class SSHPopen(object):
     def __del__(self):
         self.close_fd()
 
-class SSHPrompt(pxssh):
 
+class SSHPrompt(pxssh):
     def login(self, **kwargs):
         """
         Adapter class that converts TunnelForwarder SSH credentials to pxssh type
@@ -216,7 +219,7 @@ class SSHPrompt(pxssh):
                 kwargs['ssh_key'] = val
             else:
                 continue
-            del(kwargs[key])
+            del (kwargs[key])
 
         return super(SSHPrompt, self).login(server, username, **kwargs)
 
@@ -228,13 +231,14 @@ class SSHPrompt(pxssh):
         sleep(1)
         self.close()
 
+
 class BashPrompt(spawn):
     def __init__(self):
         self.PROMPT = "[\$\#] "
         super(BashPrompt, self).__init__('bash -i')
 
     def prompt(self, timeout=-1):
-        '''Match the next shell prompt.
+        """Match the next shell prompt.
 
         This is little more than a short-cut to the :meth:`~pexpect.spawn.expect`
         method. Note that if you called :meth:`login` with
@@ -248,21 +252,26 @@ class BashPrompt(spawn):
 
         :return: True if the shell prompt was matched, False if the timeout was
                  reached.
-        '''
+        """
         from pexpect import TIMEOUT
+
         if timeout == -1:
             timeout = self.timeout
         i = self.expect([self.PROMPT, TIMEOUT], timeout=timeout)
-        if i==1:
+        if i == 1:
             return False
         return True
 
     def logout(self):
         pass
 
+
+# noinspection PyClassHasNoInit
 class EnvironmentCallMixin:
-    def env_call(self, environment, method_name, *args, **kwargs):
+    @staticmethod
+    def env_call(environment, method_name, *args, **kwargs):
         return getattr(EnvironmentFactory.get_environment(environment), method_name).__call__(*args, **kwargs)
+
 
 class TunnelForwarder(SSHTunnelForwarder):
     def on_the_fly_tunnel(self, local_bind_address=None, remote_bind_address=None):
@@ -270,25 +279,25 @@ class TunnelForwarder(SSHTunnelForwarder):
         for _srv in self._server_list:
             if remote_bind_address:
                 if _srv.remote_host != remote_bind_address[0] and remote_bind_address[0] != '0.0.0.0':
-                    continue    # remote host is provided, is not default and does not match
+                    continue  # remote host is provided, is not default and does not match
                 if _srv.remote_port != remote_bind_address[1] and remote_bind_address[1] != 0:
-                    continue    # remote port is provided, is not default and does not match
+                    continue  # remote port is provided, is not default and does not match
             if local_bind_address:
                 if _srv.local_host != local_bind_address[0] and local_bind_address[0] != '0.0.0.0':
-                    continue    # local host is provided, is not default and does not match
+                    continue  # local host is provided, is not default and does not match
                 if _srv.local_port != local_bind_address[1] and local_bind_address[1] != 0:
-                    continue    # local port is provided, is not default and does not match
+                    continue  # local port is provided, is not default and does not match
 
-            #   If this code is reached the current server is valid for the requested tunnel
+            # If this code is reached the current server is valid for the requested tunnel
             return _srv.local_host, _srv.local_port
 
-        #   If this code is reached, we have found no valid server among the existing tunnels
+        # If this code is reached, we have found no valid server among the existing tunnels
         if local_bind_address is None:
-            local_bind_address = ('0.0.0.0', 0)     # default adress and port
+            local_bind_address = ('0.0.0.0', 0)  # default adress and port
         elif isinstance(local_bind_address, (str, unicode)):
-            local_bind_address = (local_bind_address, 0)    # default port
+            local_bind_address = (local_bind_address, 0)  # default port
         elif isinstance(local_bind_address, int):
-            local_bind_address = ('0.0.0.0', local_bind_address)    # default address
+            local_bind_address = ('0.0.0.0', local_bind_address)  # default address
 
         if not self._is_started:
             self.start()
@@ -307,16 +316,13 @@ class TunnelForwarder(SSHTunnelForwarder):
         return srv.local_host, srv.local_port
 
 
-
-
-
-
-
 def import_obj_from(module_name, obj_name):
     return import_module(module_name).__dict__[obj_name]
 
+
 def get_external_ip():
     return Pyro4.socketutil.getIpAddress('localhost', workaround127=True)
+
 
 def make_path(path, ignore_last=False):
     paths = path.split('/')
@@ -332,6 +338,7 @@ def make_path(path, ignore_last=False):
         abs_path += '/' + p
         if not p:
             break
+
 
 class RemoteExecutionLogger(object):
     def __init__(self, **settings):
@@ -408,8 +415,10 @@ class DummyLogger(object):
     def error(self, *args, **kwargs):
         pass
 
+    # noinspection PyUnusedLocal
     def duplicate(self, **kwargs):
         return self
+
 
 class Commandline(object):
     def __init__(self):
@@ -454,6 +463,7 @@ class Commandline(object):
     def get(self, *args):
         return tuple(self.data[key] for key in args)
 
+    # noinspection PyMethodMayBeStatic
     def remote_call(self, commands):
         cli = communication_environment().client2manager_side_cli
         cli(' '.join([command for command in commands if command not in ['-r', '--remote']]))
@@ -532,7 +542,8 @@ class Commandline(object):
 
     def get_manager_from_manager_side(self):
         comm_env = communication_environment()
-        return WrappedProxy('remote_execution.manager', comm_env.manager_host, comm_env.manager_port, logger=self.logger)
+        return WrappedProxy('remote_execution.manager', comm_env.manager_host, comm_env.manager_port,
+                            logger=self.logger)
 
     def get_kwargs(self, *kwargs_fields):
         int_casts = ['sub_id', 'port']
@@ -554,8 +565,8 @@ class Commandline(object):
 
     def start_executor(self):
         from .ServerSide import ExecutionController
-        ExecutionController(*self.get_kwargs('sub_id'), logger=self.logger.duplicate(logger_name='Executor'))
 
+        ExecutionController(*self.get_kwargs('sub_id'), logger=self.logger.duplicate(logger_name='Executor'))
 
     def stop_executor(self):
         # Assume we are on manager side
@@ -567,6 +578,7 @@ class Commandline(object):
 
     def start_manager(self):
         from .ServerSide import Manager
+
         comm_env = communication_environment()
         self.logger.debug("Initializing manager")
         daemon = WrappedDaemon(port=comm_env.manager_port, host=comm_env.manager_host)
@@ -712,7 +724,9 @@ class RemoteCommandline(Commandline):
             self.ssh.terminate()
             self.ssh = None
 
-            raise self.CommandLineException('in {0}\n\t{1}'.format(self.get_exec_func().im_func.func_name, self.data['error']))
+            # noinspection PyUnresolvedReferences
+            raise self.CommandLineException(
+                'in {0}\n\t{1}'.format(self.get_exec_func().im_func.func_name, self.data['error']))
         else:
             self.data[patterns[idx].strip(':')] = json.loads(line)
 
@@ -735,6 +749,7 @@ class RemoteCommandline(Commandline):
 
 
 class InvalidUserInput(Exception):
+    # noinspection PyProtectedMember,PyProtectedMember
     def __init__(self, message, argname="", argnames=tuple(), expected=None, found=None, should=None, indent=3,
                  **kwargs):
         if argname:
@@ -803,10 +818,12 @@ class InvalidUserInput(Exception):
 
     @staticmethod
     def isinstance(argname, expect, found, message="", equal=True):
-        if not isinstance(found, expect):
+        if not isinstance(found, expect) and equal:
             raise InvalidUserInput(message, argname, tuple(cls.__name__ for cls in expect), found,
                                    should='should have this class')
-
+        elif isinstance(found, expect) and not equal:
+            raise InvalidUserInput(message, argname, tuple(cls.__name__ for cls in expect), found,
+                                   should='should not have this class')
 
     @staticmethod
     def parse_input_str(input_str):
@@ -856,7 +873,6 @@ class WrappedDaemon(Pyro4.Daemon):
                 raise pyro_errors.DaemonError("unknown object")
 
         setattr(self.objectsById['Pyro.Daemon'], 'get_metadata', get_metadata)
-
 
 
 class WrappedObject(object):
@@ -932,6 +948,8 @@ class WrappedObject(object):
         else:
             return super(WrappedObject, self).__getattribute__(item)
 
+
+# noinspection PyPep8Naming
 def WrappedProxy(uri, host="", port="", logger=DummyLogger()):
     if host and port:
         uri += '@{0}:{1}'.format(host, port)
@@ -960,11 +978,13 @@ def wrap_proxy(pyro_proxy, logger=DummyLogger()):
         else:
             methods[method_name] = pyro_proxy.__getattr__(method_name)
 
+    # noinspection PyShadowingNames
     class WrappedProxy(object):
         def __init__(self, _props):
             self._props = _props
             self._faf = False
 
+        # noinspection PyMethodMayBeStatic
         def set_timeout(self, timeout):
             pyro_proxy._pyroTimeout = timeout
 
@@ -975,6 +995,7 @@ def wrap_proxy(pyro_proxy, logger=DummyLogger()):
         def __getattribute__(self, item):
             if item in methods:
                 ser_env = serializing_environment()
+
                 # noinspection PyShadowingNames
                 def call(*args, **kwargs):
                     ticket = md5(str(random())).hexdigest()
@@ -986,7 +1007,8 @@ def wrap_proxy(pyro_proxy, logger=DummyLogger()):
                     retries = 0
                     while retries < 5:
                         try:
-                            result = super(WrappedProxy, self).__getattribute__(item).__call__(ticket, self._faf, *args, **kwargs)
+                            result = super(WrappedProxy, self).__getattribute__(item).__call__(ticket, self._faf, *args,
+                                                                                               **kwargs)
                             _logger.debug('Recieved {1} from remote method {0}'.format(item, truncate_object(result)))
                             if ser_env.serialize_wrapper:
                                 result = ser_env.decoder(result)
@@ -995,6 +1017,7 @@ def wrap_proxy(pyro_proxy, logger=DummyLogger()):
                             _logger.warning('Retrying: {0}'.format(e.message))
                         retries += 1
                         sleep(.1)
+                    # noinspection PyUnboundLocalVariable
                     raise e
 
                 return call
@@ -1020,6 +1043,7 @@ def wrap_proxy(pyro_proxy, logger=DummyLogger()):
 
     return WrappedProxy(props)
 
+
 class Timer(object):
     def __init__(self, timeout=-1, interval=.2):
         self.start = time()
@@ -1037,7 +1061,7 @@ class Timer(object):
         i += 1
         next_tick = i * self.interval
         while self.elapsed < next_tick and not self._timed_out():
-            sleep(self.interval/10)
+            sleep(self.interval / 10)
         return self._timed_out()
 
     def _timed_out(self):

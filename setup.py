@@ -11,7 +11,7 @@ setup(
     author_email='',
     zip_safe = False,
     description='Execute remotely using a manager to start submits',
-    install_requires=['jsoncodecs', 'Pyro4', 'boltons', 'sshtunnel'],
+    install_requires=['jsoncodecs', 'Pyro4', 'boltons', 'sshtunnel', 'pexpect'],
     dependency_links=['https://github.com/emillynge/python-jsoncodecs/tarball/master#egg=jsoncodecs-0.1'],
     entry_points={
     'console_scripts': [

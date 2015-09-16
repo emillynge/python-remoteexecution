@@ -1,19 +1,15 @@
 from __future__ import (absolute_import, print_function, unicode_literals, division)
+
 __author__ = 'emil'
 from .ServerSide import (Manager)
-from .Utils import (import_obj_from, InvalidUserInput, DummyLogger, RemoteExecutionLogger, TunnelForwarder, RemoteCommandline, SSHPrompt, \
-                    get_external_ip, BashPrompt, SSHPopen, WrappedProxy)
+from .Utils import (InvalidUserInput, DummyLogger, RemoteExecutionLogger, WrappedProxy)
 
-from .Environments import (EnvironmentFactory, communication_environment, execution_environment)
-from collections import defaultdict
-import re
+from .Environments import (communication_environment, execution_environment)
 from Pyro4 import errors as pyro_errors
 from time import sleep
 import Pyro4
-from functools import partial
 from collections import namedtuple
 from subprocess import Popen
-from copy import (copy, deepcopy)
 import abc
 
 HPC_Time = namedtuple("HPC_Time", ['h', 'm', 's'])
@@ -38,7 +34,6 @@ class Client(object):
             self.start_manager()
         comm_env = communication_environment()
         host, port = comm_env.client2manager_tunnel()
-        p = Pyro4.config
         self.manager_proxy = WrappedProxy('remote_execution.manager', host, port,
                                           logger=self.logger.duplicate(append_name='Manager'))
         if not self.manager_proxy.is_alive():
@@ -52,7 +47,7 @@ class Client(object):
         assert isinstance(script_generator, (HPCScriptGenerator, SimpleScriptGenerator))
         script_generator.execution_settings(rel_dir=rel_dir, **requested_resources)
         instance = RemoteInstance(self.manager_proxy, self, logger=self.logger,
-                       object_descriptor=object_descriptor, script_generator=script_generator)
+                                  object_descriptor=object_descriptor, script_generator=script_generator)
         return instance
 
     def isup_manager(self):
@@ -81,11 +76,6 @@ class BaseScriptGenerator(object):
     __metaclass__ = abc.ABCMeta
 
     def __init__(self, base_dir):
-        """
-        Called by director
-        :param client: parent object that call the constructor
-        :return: None
-        """
         self.req_resources = dict()
         self.base_dir = base_dir
         self.rel_dir = '.'
@@ -133,6 +123,7 @@ class BaseScriptGenerator(object):
             raise Exception('No script generated yet')
         return '\n'.join(self._lines)
 
+
 class SimpleScriptGenerator(BaseScriptGenerator):
     def _write_lines(self, execute_command, log_file, sub_id):
         self._lines.append('#!/bin/sh')
@@ -147,6 +138,7 @@ class HPCScriptGenerator(BaseScriptGenerator):
     """
     Subclass that writes a execution script tailored to the DTU HPC qsub system.
     """
+
     def __init__(self, base_modules, base_dir, manager):
         self.base_modules = base_modules
         self.manager = manager
@@ -164,7 +156,7 @@ class HPCScriptGenerator(BaseScriptGenerator):
         try:
             if hw_ressources.nodes < 1 or hw_ressources.ppn < 1:
                 raise InvalidUserInput('A job must have at least 1 node and 1 processor', argname='resources',
-                                           found=hw_ressources)
+                                       found=hw_ressources)
             if not any(wc):
                 raise InvalidUserInput('No wall clock time assigned to job', argname='wallclock', found=wc)
 
@@ -188,7 +180,7 @@ class HPCScriptGenerator(BaseScriptGenerator):
         raise StopIteration()
 
     def check_modules(self):
-        avail_modules = self.manager.env_call('execution','available_modules')
+        avail_modules = self.manager.env_call('execution', 'available_modules')
         for (module, version) in self.modules:
             if module not in avail_modules:
                 raise InvalidUserInput("Required module {0} is not available".format(module))
@@ -276,7 +268,6 @@ class RemoteInstance(object):
         self.execution_controller = None
         self.stage_submission()
 
-
     def __call__(self, *args, **kwargs):
         self.args = args
         self.kwargs = kwargs
@@ -294,8 +285,9 @@ class RemoteInstance(object):
     def make_tunnel(self):
         if self.proxy_info:
             comm_env = communication_environment()
-            self.executor_local_host, self.executor_local_port = comm_env.client2executor_tunnel(self.proxy_info['host'],
-                                                                                                 self.proxy_info['port'])
+            self.executor_local_host, self.executor_local_port = comm_env.client2executor_tunnel(
+                self.proxy_info['host'],
+                self.proxy_info['port'])
         else:
             raise Exception('Cannot make tunnel without a ready executor. Have you submitted?')
 
@@ -307,7 +299,8 @@ class RemoteInstance(object):
 
     def _get_execution_controller(self):
         self.execution_controller = WrappedProxy('remote_execution.executor.controller', self.executor_local_host,
-                                                 self.executor_local_port, logger=self.logger.duplicate(append_name='Exec'))
+                                                 self.executor_local_port,
+                                                 logger=self.logger.duplicate(append_name='Exec'))
 
     def make_obj(self, obj_descriptor):
         if not all([self.manager_proxy.in_state(self.sub_id, 'ready'), self.execution_controller]):
@@ -327,7 +320,8 @@ class RemoteInstance(object):
             obj_info = self.execution_controller.register_new_object(*self.args, **self.kwargs)
             return self._get_obj(obj_info)
         else:
-            raise InvalidUserInput('Descriptor matches no valid ways of setting the prototype', argname='obj_descriptor',
+            raise InvalidUserInput('Descriptor matches no valid ways of setting the prototype',
+                                   argname='obj_descriptor',
                                    found=obj_descriptor)
 
     def _get_obj(self, obj_info):
@@ -341,7 +335,8 @@ class RemoteInstance(object):
             # raise KeyboardInterrupt()
             if t > 0:
                 self.client.logger.debug(
-                    'Waiting for remote object to get to {2}.\n\t Current state: {0}\n\t Seconds left: {1}'.format(state, t, target_state))
+                    'Waiting for remote object to get to {2}.\n\t Current state: {0}\n\t Seconds left: {1}'.format(
+                        state, t, target_state))
                 sleep(min([t, 30]))
                 i = 0
             elif i > iter_limit:

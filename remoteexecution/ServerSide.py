@@ -2,13 +2,13 @@ from __future__ import (absolute_import, print_function, unicode_literals, divis
 import os
 
 __author__ = 'emil'
-from .Environments import (communication_environment, execution_environment )
+from .Environments import (communication_environment, execution_environment)
 from .Utils import (DummyLogger, RemoteExecutionLogger, WrappedDaemon, WrappedProxy, WrappedObject,
                     InvalidUserInput, import_obj_from, EnvironmentCallMixin, Timer)
 import re
-from collections import namedtuple, defaultdict
-from time import sleep
+from collections import defaultdict
 from subprocess import Popen, PIPE
+
 
 class Manager(EnvironmentCallMixin, object):
     def __init__(self, logger=None):
@@ -36,9 +36,10 @@ class Manager(EnvironmentCallMixin, object):
 
         self.running = True
         self.pid = os.getpid()
-        self.logger.info("Manager started on {0} with pid {1}".format( self.ip, self.pid))
+        self.logger.info("Manager started on {0} with pid {1}".format(self.ip, self.pid))
 
-    def read_file(self, file_name):
+    @staticmethod
+    def read_file(file_name):
         with open(file_name, 'r') as fp:
             return fp.read()
 
@@ -61,12 +62,13 @@ class Manager(EnvironmentCallMixin, object):
         if self.in_state(sub_id, 'queued'):
             self.logger.info('dequeueing submit {0}'.format(sub_id))
             self.sub_del(sub_id)
-            return 0    # Killed because it was still in queue
+            return 0  # Killed because it was still in queue
 
         if not self.has_reached_state(sub_id, 'shutdown'):  # past queue, but before shutdown
             self.logger.debug('Trying to shutdown submit {0} gracefully'.format(sub_id))
 
-            if not self.wait_for_state(sub_id, 'ready', 2.0):    # if past queue executor must either be ready or becoming ready
+            if not self.wait_for_state(sub_id, 'ready',
+                                       2.0):  # if past queue executor must either be ready or becoming ready
                 self.logger.info('submit {0} stuck in {1}'.format(sub_id, self.get_state(sub_id)))
                 self.sub_del(sub_id)
                 return 1
@@ -76,10 +78,10 @@ class Manager(EnvironmentCallMixin, object):
                                       self.subs[sub_id]['proxy_info']['port'],
                                       logger=self.logger.duplicate(append_name='Exec'))
 
-            controller.shutdown()   #   putting submit into shutdown state
+            controller.shutdown()  # putting submit into shutdown state
             self.subs[sub_id]['state'] = 'shutdown'
 
-        if not self.wait_for_state(sub_id, 'completed', 5.5):   #   after shutdown. Wait for complete
+        if not self.wait_for_state(sub_id, 'completed', 5.5):  # after shutdown. Wait for complete
             self.logger.info('submit {0} stuck in {1}'.format(sub_id, self.get_state(sub_id)))
             self.sub_del(sub_id)
             return 1
@@ -157,7 +159,7 @@ class Manager(EnvironmentCallMixin, object):
         self.subs[sub_id]['proxy_info'] = {'host': daemon_ip, 'port': int(daemon_port)}
         self.subs[sub_id]['state'] = 'ready'
         self.logger.info('proxy info on submit {0} recieved: {host}:{port}'.format(sub_id,
-                                                                                    **self.subs[sub_id]['proxy_info']))
+                                                                                   **self.subs[sub_id]['proxy_info']))
 
     def get_proxy_info(self, sub_id):
         if self.has_reached_state(sub_id, 'ready'):
@@ -188,7 +190,7 @@ class Manager(EnvironmentCallMixin, object):
             self.sub_stat(sub_id)
             if self.has_reached_state(sub_id, state):
                 return True
-            if not timer.sleep():   # evaluates to true if timer is timed out
+            if not timer.sleep():  # evaluates to true if timer is timed out
                 return False
 
     @staticmethod
@@ -251,6 +253,7 @@ class Manager(EnvironmentCallMixin, object):
 
     def __del__(self):
         self.shutdown_all_subs()
+
 
 class DummyPrototype(object):
     def __init__(self, *args, **kwargs):

@@ -1,7 +1,8 @@
 from __future__ import (absolute_import, print_function, unicode_literals, division)
+
 __author__ = 'emil'
 import abc
-from pexpect import pxssh
+import pxssh
 import Pyro4
 import os
 from copy import deepcopy
@@ -11,7 +12,9 @@ from jsoncodecs import (build_codec, HANDLERS)
 import re
 from collections import (namedtuple, defaultdict)
 from functools import partial
+
 FNULL = open(os.devnull, 'w')
+
 
 def set_default():
     EnvironmentFactory.set_environments(communication=CommAllOnSameMachine, execution=ExecTest,
@@ -20,10 +23,12 @@ def set_default():
                                     manager_interpreter='python2', manager_target='remote-exec-cli',
                                     pyro_serializer='serpent')
 
+
 def serializing_environment():
     env_obj = EnvironmentFactory.get_environment('serializer')
-    assert isinstance(env_obj, (SerializingEnvironment))
+    assert isinstance(env_obj, SerializingEnvironment)
     return env_obj
+
 
 def communication_environment():
     env_obj = EnvironmentFactory.get_environment('communication')
@@ -31,12 +36,14 @@ def communication_environment():
                                 Manager2ExecutorThroughSSH, Client2ManagerThroughSSH))
     return env_obj
 
+
 def execution_environment():
     env_obj = EnvironmentFactory.get_environment('execution')
-    assert isinstance(env_obj, (ExecutionEnvironment))
+    assert isinstance(env_obj, ExecutionEnvironment)
     return env_obj
 
 
+# noinspection PyDefaultArgument,PyDefaultArgument
 class EnvironmentFactory(object):
     def __init__(self):
         self._settings = self._get_set_settings()
@@ -58,7 +65,7 @@ class EnvironmentFactory(object):
         cls._get_set_settings(**factory_settings)
 
     @staticmethod
-    def _get_set_settings(_settings=dict(),  **factory_settings):
+    def _get_set_settings(_settings=dict(), **factory_settings):
         if 'pyro_serializer' in factory_settings:
             Pyro4.config.SERIALIZER = factory_settings['pyro_serializer']
             Pyro4.config.SERIALIZERS_ACCEPTED.add(factory_settings['pyro_serializer'])
@@ -72,7 +79,7 @@ class EnvironmentFactory(object):
         cls._get_set_environments(**environments)
 
     @classmethod
-    def _get_set_environments(cls, _environments=dict(),  **environments):
+    def _get_set_environments(cls, _environments=dict(), **environments):
         for env_name, env_cls in environments.iteritems():
             env_obj = cls.load_environment_obj(env_name, env_cls)
             _environments[env_name] = env_obj
@@ -125,8 +132,8 @@ class EnvironmentFactory(object):
         return factory.__repr__()
 
 
-from .Utils import (WrappedProxy, import_obj_from, InvalidUserInput, DummyLogger, TunnelForwarder, RemoteCommandline, SSHPrompt, \
-                    get_external_ip, BashPrompt, SSHPopen)
+from .Utils import (WrappedProxy, import_obj_from, InvalidUserInput, DummyLogger, TunnelForwarder, RemoteCommandline,
+                    SSHPrompt, get_external_ip, BashPrompt, SSHPopen)
 from .ClientSide import (BaseScriptGenerator, SimpleScriptGenerator, HPCScriptGenerator)
 
 
@@ -158,22 +165,24 @@ class Environment(object):
         return '{"' + self.__class__.__module__ + '":"' + self.__class__.__name__ + '"}'
 
 
-
 class _CommunicationRequired(Environment):
     __metaclass__ = abc.ABCMeta
 
     # Remote commandlines always needed to get from client to manager side.
     # in some cases it may be necessary to get to the executor side and from executor to manager
+    # noinspection PyArgumentList,PyArgumentList
     @abc.abstractmethod
     def make_remote_cli_client2manager(self):
         return RemoteCommandline(None)
 
     # optional
+    # noinspection PyArgumentList,PyArgumentList
     @abc.abstractmethod
     def make_remote_cli_manager2executor(self):
         return RemoteCommandline(None)
 
     # optional
+    # noinspection PyArgumentList,PyArgumentList
     @abc.abstractmethod
     def make_remote_cli_executor2manager(self):
         return RemoteCommandline(None)
@@ -211,6 +220,7 @@ class _CommunicationRequired(Environment):
         port = int()
         return host, port
 
+
 class _CommunicationOptionals(object):
     @property
     def executor_popen(self):
@@ -241,7 +251,7 @@ class CommunicationEnvironment(_CommunicationOptionals, _CommunicationRequired):
         self._executor_side_cli = None
 
     def set_settings(self, manager_port=None, manager_ip=None,
-                     manager_work_dir=None, client_work_dir=None,  executor_work_dir=None,
+                     manager_work_dir=None, client_work_dir=None, executor_work_dir=None,
                      **settings):
 
         self.manager_port = manager_port or self.manager_port
@@ -299,18 +309,17 @@ class CommunicationEnvironment(_CommunicationOptionals, _CommunicationRequired):
     def client2executor_tunnel(self, executor_host, executor_port):
         manager_host_binding, manager_port_binding = self.client2manager_proxy.env_call('communication',
                                                                                         'manager2executor_tunnel',
-                                                                                             executor_host,
-                                                                                             executor_port)
+                                                                                        executor_host,
+                                                                                        executor_port)
         host, port = self.client2manager_tunnel(manager_host=manager_host_binding, manager_port=manager_port_binding)
         return host, port
-
 
     # This one is inferred and should not be overridden
     def executor2client_tunnel(self, client_host, client_port):
         manager_host_binding, manager_port_binding = self.executor2manager_proxy.env_call('communication',
-                                                                                           'manager2client_tunnel',
-                                                                                               client_host,
-                                                                                               client_port)
+                                                                                          'manager2client_tunnel',
+                                                                                          client_host,
+                                                                                          client_port)
         host, port = self.executor2manager_tunnel(manager_host=manager_host_binding, manager_port=manager_port_binding)
         return host, port
 
@@ -318,14 +327,14 @@ class CommunicationEnvironment(_CommunicationOptionals, _CommunicationRequired):
     @property
     def client2manager_proxy(self, manager_host=None, manager_port=None):
         if not self._manager_proxy:
-            local_host, local_port = self.client2manager_tunnel()
+            local_host, local_port = self.client2manager_tunnel(manager_host=manager_host, manager_port=manager_port)
             self._manager_proxy = WrappedProxy('remote_execution.manager@{0}:{1}'.format(local_host, local_port))
         return self._manager_proxy
 
     @property
     def executor2manager_proxy(self, manager_host=None, manager_port=None):
         if not self._manager_proxy:
-            local_host, local_port = self.executor2manager_tunnel()
+            local_host, local_port = self.executor2manager_tunnel(manager_host=manager_host, manager_port=manager_port)
             self._manager_proxy = WrappedProxy('remote_execution.manager@{0}:{1}'.format(local_host, local_port))
         return self._manager_proxy
 
@@ -402,6 +411,7 @@ class SSHMixin(object):
         s.prompt()
         return s
 
+
 class Client2ManagerThroughSSH(SSHMixin, CommunicationEnvironment):
     def __init__(self):
         self.client2manager_ssh_settings = None
@@ -423,8 +433,10 @@ class Client2ManagerThroughSSH(SSHMixin, CommunicationEnvironment):
 
         def ssh_instance_generator():
             self.ssh_prompt(self.client2manager_ssh_settings, ex_env.manager_work_dir)
+
         cli = RemoteCommandline(ssh_instance_generator, ex_env.manager_interpreter, ex_env.manager_target)
         return cli
+
 
 class Executor2ManagerThroughSSH(SSHMixin, CommunicationEnvironment):
     def __init__(self):
@@ -447,6 +459,7 @@ class Executor2ManagerThroughSSH(SSHMixin, CommunicationEnvironment):
 
         def ssh_instance_generator():
             self.ssh_prompt(self.executor2manager_ssh_settings, ex_env.manager_work_dir)
+
         cli = RemoteCommandline(ssh_instance_generator, ex_env.manager_interpreter, ex_env.manager_target)
         return cli
 
@@ -471,6 +484,7 @@ class Manager2ExecutorThroughSSH(SSHMixin, CommunicationEnvironment):
 
         def ssh_instance_generator():
             self.ssh_prompt(self.manager2executor_ssh_settings, ex_env.executor_work_dir)
+
         cli = RemoteCommandline(ssh_instance_generator, ex_env.executor_interpreter, ex_env.executor_target)
         return cli
 
@@ -484,6 +498,7 @@ class Manager2ExecutorThroughSSH(SSHMixin, CommunicationEnvironment):
             self.executor_popen_ssh = self.ssh_instance_manager2executor()
         ex_env = execution_environment()
         return partial(SSHPopen, work_dir=ex_env.executor_work_dir, ssh_prompt=self.executor_popen_ssh)
+
 
 class ManagerAndExecutorOnLAN(CommunicationEnvironment):
     def manager2executor_tunnel(self, executor_host, executor_port):
@@ -556,7 +571,7 @@ class ExecutionEnvironment(Environment):
         self.executor_work_dir = None
         self.output_cls = namedtuple('Output', ['stdout', 'stderr'])
         super(ExecutionEnvironment, self).__init__()
-        
+
     def set_settings(self, **settings):
         _settings = self.set_attribute_if_in_settings('client_interpreter',
                                                       'client_target',
@@ -605,13 +620,14 @@ class ExecutionEnvironment(Environment):
         output = self.output_cls()
         return output
 
+    # noinspection PyArgumentList
     @abc.abstractproperty
     def script_generator(self):
         return BaseScriptGenerator()
 
 
 class ExecManagerAndExecutorOnSameMachine(ExecutionEnvironment):
-    def set_settings(self,  **settings):
+    def set_settings(self, **settings):
         _settings = self.set_attribute_if_in_settings('manager_work_dir', 'manager_interpreter', 'manager_target',
                                                       **settings)
         self.executor_work_dir = self.manager_work_dir
@@ -621,7 +637,7 @@ class ExecManagerAndExecutorOnSameMachine(ExecutionEnvironment):
 
 
 class ExecClientAndManagerOnSameMachine(ExecutionEnvironment):
-    def set_settings(self,  **settings):
+    def set_settings(self, **settings):
         _settings = self.set_attribute_if_in_settings('manager_work_dir', 'manager_interpreter', 'manager_target',
                                                       **settings)
         self.client_work_dir = self.manager_work_dir
@@ -631,8 +647,9 @@ class ExecClientAndManagerOnSameMachine(ExecutionEnvironment):
 
 
 class ExecAllOnSameMachine(ExecManagerAndExecutorOnSameMachine, ExecClientAndManagerOnSameMachine):
-    def set_settings(self,  work_dir=None, interpreter=None, target=None, **settings):
-        _settings = self.set_attribute_if_in_settings('manager_work_dir','manager_target', 'manager_interpreter', **settings)
+    def set_settings(self, work_dir=None, interpreter=None, target=None, **settings):
+        _settings = self.set_attribute_if_in_settings('manager_work_dir', 'manager_target', 'manager_interpreter',
+                                                      **settings)
         self.manager_work_dir = work_dir or self.manager_work_dir
         self.manager_target = target or self.manager_target
         self.manager_interpreter = interpreter or self.manager_interpreter
@@ -671,7 +688,6 @@ class PopenExecution(ExecutionEnvironment):
 
     @property
     def script_generator(self):
-        comm_env = communication_environment()
         return SimpleScriptGenerator(self.executor_work_dir)
 
     def job_del(self, job_id, fire_and_forget=False):
@@ -681,7 +697,7 @@ class PopenExecution(ExecutionEnvironment):
             Popen(['kill', '-9', job_id])
             return None
 
-        p = Popen(['kill', '-9', job_id], stderr=PIPE, stdout=PIPE)
+        p = _POpen(['kill', '-9', job_id], stderr=PIPE, stdout=PIPE)
         return p.communicate()
 
 
@@ -718,6 +734,7 @@ class QsubExecution(ExecutionEnvironment):
         module_dict = defaultdict(list)
         for mod_ver in module_ver_list:
             if len(mod_ver) < 2:
+                # noinspection PyTypeChecker
                 mod_ver.append('default')
 
             module_dict[mod_ver[0]].append(mod_ver[1])
@@ -751,8 +768,10 @@ class QsubExecution(ExecutionEnvironment):
 
     def script_generator(self):
         comm_env = communication_environment()
+        # noinspection PyProtectedMember
         return HPCScriptGenerator(self.base_modules, self.executor_work_dir,
-                           comm_env._manager_proxy)
+                                  comm_env._manager_proxy)
+
 
 class ExecTest(ExecAllOnSameMachine, PopenExecution):
     pass
@@ -773,10 +792,12 @@ class SerializingEnvironment(Environment):
 
         def encoder(obj):
             return json.dumps(obj, cls=enc)
+
         self._encoder = encoder
 
         def decoder(obj):
             return json.loads(obj, cls=dec, key_typecasts=self.key_typecasts)
+
         self._decoder = decoder
 
     @property
