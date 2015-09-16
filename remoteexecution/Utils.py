@@ -30,55 +30,55 @@ from hashlib import md5
 from random import random
 
 
-class ShellOverwrite(object):
-    """ Methods that must be overridden by topmost class """
-    __metaclass__ = abc.ABCMeta
-
-    @abc.abstractmethod
-    def __init__(self, work_dir=None, settings=None, **kwargs):
-        """ init method should completely inititalize instance such that sendline works immediately
-        :param work_dir:
-        :param settings: settings needed for init
-        :param kwargs: sent directly to super init
-        :return:
-        """
-        super(ShellOverwrite, self).__init__(**kwargs)
-
-    @abc.abstractmethod
-    def close(self, force=True):
-        """ shutdown shell instance """
-        super(ShellOverwrite, self).close(force=force)
-        pass
-
-
-class ShellRequired(object):
-    """ Methods that is required but can be provided by mixed in classes """
-    __metaclass__ = abc.ABCMeta
-
-    @abc.abstractmethod
-    def start_orphaned_process(self, command=""):
-        """ take command in string or list format, return pid of any spawned process """
-        pid = int()
-        return pid
-
-    @abc.abstractmethod
-    def prompt(self, timeout=-1):
-        """ wait for prompt to be ready to receive new command. return bool indicating whether prompt is reached """
-        return_code = bool()
-        return return_code
-
-    @abc.abstractmethod
-    def expect(self, pattern, timeout=-1, searchwindowsize=-1):
-        """ Wait for shell to output something that matches patterns.
-        return idx of the matched pattern and set current position to this line"""
-        idx = int()
-        return idx
-
-    @abc.abstractmethod
-    def readline(self):
-        """ read the line at current position """
-        line = str()
-        return line
+# class ShellOverwrite(object):
+#     """ Methods that must be overridden by topmost class """
+#     __metaclass__ = abc.ABCMeta
+#
+#     @abc.abstractmethod
+#     def __init__(self, work_dir=None, settings=None, **kwargs):
+#         """ init method should completely inititalize instance such that sendline works immediately
+#         :param work_dir:
+#         :param settings: settings needed for init
+#         :param kwargs: sent directly to super init
+#         :return:
+#         """
+#         super(ShellOverwrite, self).__init__(**kwargs)
+#
+#     @abc.abstractmethod
+#     def close(self, force=True):
+#         """ shutdown shell instance """
+#         super(ShellOverwrite, self).close(force=force)
+#         pass
+#
+#
+# class ShellRequired(object):
+#     """ Methods that is required but can be provided by mixed in classes """
+#     __metaclass__ = abc.ABCMeta
+#
+#     @abc.abstractmethod
+#     def start_orphaned_process(self, command=""):
+#         """ take command in string or list format, return pid of any spawned process """
+#         pid = int()
+#         return pid
+#
+#     @abc.abstractmethod
+#     def prompt(self, timeout=-1):
+#         """ wait for prompt to be ready to receive new command. return bool indicating whether prompt is reached """
+#         return_code = bool()
+#         return return_code
+#
+#     @abc.abstractmethod
+#     def expect(self, pattern, timeout=-1, searchwindowsize=-1):
+#         """ Wait for shell to output something that matches patterns.
+#         return idx of the matched pattern and set current position to this line"""
+#         idx = int()
+#         return idx
+#
+#     @abc.abstractmethod
+#     def readline(self):
+#         """ read the line at current position """
+#         line = str()
+#         return line
 
 class SSHOutPipe(StringIO):
     def __init__(self, ssh_session, io_file):
@@ -932,7 +932,7 @@ class WrappedObject(object):
         else:
             return super(WrappedObject, self).__getattribute__(item)
 
-def WrappedProxy(uri, host, port, logger=DummyLogger()):
+def WrappedProxy(uri, host="", port="", logger=DummyLogger()):
     if host and port:
         uri += '@{0}:{1}'.format(host, port)
     proxy = Pyro4.Proxy('PYRO:' + uri)
