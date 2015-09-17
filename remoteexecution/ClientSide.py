@@ -32,14 +32,15 @@ class Client(object):
 
         if not self.isup_manager():
             self.start_manager()
-        comm_env = communication_environment()
-        host, port = comm_env.client2manager_tunnel()
-        self.manager_proxy = WrappedProxy('remote_execution.manager', host, port,
-                                          logger=self.logger.duplicate(append_name='Manager'))
+        else:
+            self.get_proxy()
+
         if not self.manager_proxy.is_alive():
             self.logger.error('could not start manager')
             raise Exception("Could not start manager")
-        self.logger.info("Successfully connected to Qsub manager on {0}".format(port))
+        comm_env = communication_environment()
+        host, port = comm_env.client2manager_tunnel()
+        self.logger.info("Successfully connected to Manager on {0}".format(port))
 
     def instance_generator(self, object_descriptor=None, rel_dir=".", **requested_resources):
         script_generator = execution_environment().script_generator
@@ -50,6 +51,12 @@ class Client(object):
                                   object_descriptor=object_descriptor, script_generator=script_generator)
         return instance
 
+    def get_proxy(self):
+        comm_env = communication_environment()
+        host, port = comm_env.client2manager_tunnel()
+        self.manager_proxy = WrappedProxy('remote_execution.manager', host, port,
+                                      logger=self.logger.duplicate(append_name='Manager'))
+
     def isup_manager(self):
         self.remote_commandline('-i -f mylog -s isup manager')
         EnvironmentFactory.set_settings(manager_ip=self.remote_commandline.get('ip')[0])
@@ -57,6 +64,7 @@ class Client(object):
 
     def start_manager(self):
         self.remote_commandline('-i -f mylog -s start manager')
+        self.get_proxy()
 
     @staticmethod
     def get_manager(self):
@@ -70,16 +78,21 @@ class Client(object):
                 sleep(.25)
         except pyro_errors.CommunicationError:
             pass
+        self.manager_proxy.release_socket()
+        del self.manager_proxy
         sleep(3)
         for _ in range(5):
             try:
                 self.start_manager()
+                e = None
                 break
             except Commandline.CommandLineException as e:
                 if 'Errno 98' in e.message:
                     sleep(1)
                 else:
                     raise e
+        if e:
+            raise e
 
         self.logger.info("Manager restarted")
 

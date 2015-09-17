@@ -604,6 +604,7 @@ class Commandline(object):
         self.logger.info("putting manager in request loop")
         self.stdout('blocking', datetime.datetime.now().isoformat())
         daemon.requestLoop(loopCondition=manager.is_alive)
+        sleep(1)
         daemon.close()
 
     def stop_manager(self):
@@ -1052,6 +1053,9 @@ def wrap_proxy(pyro_proxy, logger=DummyLogger()):
 
         def set_fire_and_forget(self, faf):
             self._faf = faf
+
+        def release_socket(self):
+            pyro_proxy._pyroRelease()
 
         # noinspection PyUnboundLocalVariable
         def __getattribute__(self, item):
