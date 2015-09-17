@@ -1017,6 +1017,7 @@ def WrappedProxy(uri, host="", port="", logger=DummyLogger()):
     if host and port:
         uri += '@{0}:{1}'.format(host, port)
     proxy = Pyro4.Proxy('PYRO:' + uri)
+    proxy._pyroTimeout = 2
     return wrap_proxy(proxy, logger=logger)
 
 
