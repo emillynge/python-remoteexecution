@@ -669,11 +669,15 @@ class PopenExecution(ExecutionEnvironment):
     def job_start(self, execution_script_location):
         comm_env = communication_environment()
         _POpen = comm_env.executor_popen
-        p1 = _POpen(['sh', execution_script_location])
-        p2 = _POpen(['ps', '--ppid', str(p1.pid)], stdout=PIPE)
-        p2.stdout.readline()
-        line = p2.stdout.readline()
-        job_id = re.findall('\d+', line)[0]
+        with open(execution_script_location) as fp:
+            command = fp.readline().split(' ')
+        p = _POpen([command])
+        job_id = p.pid
+        #p1 = _POpen(['sh', execution_script_location])
+        #p2 = _POpen(['ps', '--ppid', str(p1.pid)], stdout=PIPE)
+        #p2.stdout.readline()
+        #line = p2.stdout.readline()
+        #job_id = re.findall('\d+', line)[0]
         return job_id
 
     def job_stat(self, job_id):

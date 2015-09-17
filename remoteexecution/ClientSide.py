@@ -88,7 +88,7 @@ class Client(object):
                 break
             except Commandline.CommandLineException as e:
                 if 'Errno 98' in e.message:
-                    sleep(1)
+                    sleep(5)
                 else:
                     raise e
         if e:
@@ -151,8 +151,8 @@ class BaseScriptGenerator(object):
 
 class SimpleScriptGenerator(BaseScriptGenerator):
     def _write_lines(self, execute_command, log_file, sub_id):
-        self._lines.append('#!/bin/sh')
-        self._lines.append('cd ' + self.work_dir)
+        #self._lines.append('#!/bin/sh')
+        #self._lines.append('cd ' + self.work_dir)
         self._lines.append(execute_command)
 
     def check_ressources(self, **requested_resources):
