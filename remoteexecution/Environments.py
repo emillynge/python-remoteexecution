@@ -672,9 +672,9 @@ class PopenExecution(ExecutionEnvironment):
         comm_env = communication_environment()
         _POpen = comm_env.executor_popen
         with open(execution_script_location) as fp:
-            command = fp.readline().split(' ')
-            self.logger.debug(command)
-        p = _POpen([command])
+            commands = fp.readline().split(' ')
+            self.logger.debug(commands)
+        p = _POpen(commands)
         job_id = p.pid
         #p1 = _POpen(['sh', execution_script_location])
         #p2 = _POpen(['ps', '--ppid', str(p1.pid)], stdout=PIPE)

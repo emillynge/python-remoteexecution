@@ -70,7 +70,7 @@ class Client(object):
     def get_manager(self):
         raise Manager()
 
-    def restart_manager(self):
+    def stop_manager(self):
         self.manager_proxy.shutdown()
         try:
             while True:
@@ -80,6 +80,9 @@ class Client(object):
             pass
         self.manager_proxy.release_socket()
         del self.manager_proxy
+
+    def restart_manager(self):
+        self.stop_manager()
         sleep(3)
         for _ in range(5):
             try:
