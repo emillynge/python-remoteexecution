@@ -97,8 +97,8 @@ class SSHOutPipe(StringIO):
         end_tag = md5(str(random())).hexdigest()  # len=32
         self.ssh_session.send_python_script(["fp = open('{0}', 'r')".format(self.io_file),
                                              "fp.seek({0})".format(self.len),
-                                             "end = '{0}'".format(end_tag),
-                                             "start = '{0}'".format(start_tag),
+                                             "end = '{0}' + '{1}'".format(end_tag[:16], end_tag[16:]),
+                                             "start = '{0}' + '{1}'".format(start_tag[:16], start_tag[16:]),
                                              'print(start + fp.read() + end)',
                                              'fp.close()'])
         self.ssh_session.expect('{0}.*{1}'.format(start_tag, end_tag))
@@ -145,11 +145,11 @@ class SSHPopen(object):
         self.ssh_session.expect('\[\d+\] \d+')
         self.pid = self.ssh_session.after.split(' ')[-1]
         if stdout:
-            self.stdout = SSHOutPipe(ssh_prompt, self.io_out)
+            self.stdout = SSHOutPipe(self.ssh_session, self.io_out)
         else:
             self.stdout = None
         if stderr:
-            self.stderr = SSHOutPipe(ssh_prompt, self.io_err)
+            self.stderr = SSHOutPipe(self.ssh_session, self.io_err)
         else:
             self.stderr = None
 
