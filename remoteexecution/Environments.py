@@ -502,7 +502,7 @@ class Manager2ExecutorThroughSSH(SSHMixin, CommunicationEnvironment):
 
     @property
     def executor_popen(self):
-        if not self.executor_popen_ssh:
+        if False:#not self.executor_popen_ssh:
             self.executor_popen_ssh = self.ssh_instance_manager2executor()
         ex_env = execution_environment()
         return partial(SSHPopen, work_dir=ex_env.executor_work_dir, ssh_prompt=self.executor_popen_ssh)
