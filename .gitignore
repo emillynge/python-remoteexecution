@@ -15,6 +15,9 @@ dist/
 downloads/
 eggs/
 .eggs/
+/test3.py
+/test2.py
+/test.py
 lib/
 lib64/
 parts/
