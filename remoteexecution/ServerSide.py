@@ -284,6 +284,7 @@ class ExecutionController(EnvironmentCallMixin, object):
         self.daemon.register(WrappedObject(self, logger=self.logger), 'remote_execution.executor.controller')
         self.manager.set_proxy_info(sub_id, self.local_ip, self.port)
         self.daemon.requestLoop(self.is_alive)
+        self.daemon.close()
 
     def register_new_object(self, *args, **kwargs):
         wrapped_obj = self.get_wrapped_object(*args, **kwargs)
