@@ -542,6 +542,8 @@ class Commandline(object):
 
     def get_manager_from_manager_side(self):
         comm_env = communication_environment()
+        comm_env.my_location = 'manager'
+
         return WrappedProxy('remote_execution.manager', comm_env.manager_host, comm_env.manager_port,
                             logger=self.logger)
 

@@ -166,180 +166,6 @@ class Environment(object):
         return '{"' + self.__class__.__module__ + '":"' + self.__class__.__name__ + '"}'
 
 
-class _CommunicationRequired(Environment):
-    __metaclass__ = abc.ABCMeta
-
-    # Remote commandlines always needed to get from client to manager side.
-    # in some cases it may be necessary to get to the executor side and from executor to manager
-    # noinspection PyArgumentList,PyArgumentList
-    @abc.abstractmethod
-    def make_remote_cli_client2manager(self):
-        return RemoteCommandline(None)
-
-    # optional
-    # noinspection PyArgumentList,PyArgumentList
-    @abc.abstractmethod
-    def make_remote_cli_manager2executor(self):
-        return RemoteCommandline(None)
-
-    # optional
-    # noinspection PyArgumentList,PyArgumentList
-    @abc.abstractmethod
-    def make_remote_cli_executor2manager(self):
-        return RemoteCommandline(None)
-
-    # Tunnels are needed from client and executor to manager to obtain manager_proxy.
-    # Manager tunnels should only take optional address arguments.
-    # Furthermore a proxy is needed from client and manager to the executor, these should take address arguments
-    # Optionally proxies from manager and executor can be implemented with address arguments.
-    #  All tunnels return the *local* bindings for host and port
-
-    # *Manager tunnels*
-    @abc.abstractmethod
-    def client2manager_tunnel(self, manager_host=None, manager_port=None):
-        host = str()
-        port = int()
-        return host, port
-
-    @abc.abstractmethod
-    def executor2manager_tunnel(self, manager_host=None, manager_port=None):
-        host = str()
-        port = int()
-        return host, port
-
-    # *Executor tunnels*
-    @abc.abstractmethod
-    def manager2executor_tunnel(self, executor_host, executor_port):
-        host = str()
-        port = int()
-        return host, port
-
-    # *Client tunnels* (optional)
-    @abc.abstractmethod
-    def manager2client_tunnel(self, client_host, client_port):
-        host = str()
-        port = int()
-        return host, port
-
-
-class _CommunicationOptionals(object):
-    @property
-    def executor_popen(self):
-        raise NotImplementedError('Method is marked as non-available for this configuration')
-
-    def manager2client_tunnel(self, client_host, client_port):
-        raise NotImplementedError('Method is marked as non-available for this configuration')
-
-    def make_remote_cli_manager2executor(self):
-        raise NotImplementedError('Method is marked as non-available for this configuration')
-
-    def make_remote_cli_executor2manager(self):
-        raise NotImplementedError('Method is marked as non-available for this configuration')
-
-
-class CommunicationEnvironment(_CommunicationOptionals, _CommunicationRequired):
-    def __init__(self):
-        super(Environment, self).__init__()
-        self.my_location = None
-        self._my_ip = None
-
-        self.manager_port = None
-        self._manager_ip = None
-        self._manager_proxy = None
-
-        self._manager_side_cli = None
-        self._client_side_cli = None
-        self._executor_side_cli = None
-
-    def set_settings(self, manager_port=None, manager_ip=None,
-                     manager_work_dir=None, client_work_dir=None, executor_work_dir=None,
-                     **settings):
-
-        self.manager_port = manager_port or self.manager_port
-        self._manager_ip = manager_ip or self._manager_ip
-        self.is_attr_set('manager_port', int)
-        super(CommunicationEnvironment, self).set_settings(**settings)
-
-    @property
-    def manager_side_cli(self):
-        if self._manager_side_cli:
-            return self._manager_side_cli
-        if self.my_location == 'client':
-            self._manager_side_cli = self.make_remote_cli_client2manager()
-            return self._manager_side_cli
-        if self.my_location == 'executor':
-            self._manager_side_cli = self.make_remote_cli_executor2manager()
-            return self._manager_side_cli
-        raise Exception('Cannot request a manager command line when my_location is unknown')
-
-    @property
-    def client2manager_side_cli(self):
-        self.my_location = 'client'
-        return self.manager_side_cli
-
-    @property
-    def executor2manager_side_cli(self):
-        self.my_location = 'executor'
-        return self.manager_side_cli
-
-    @property
-    def my_ip(self):
-        if not self._my_ip:
-            self._my_ip = get_external_ip()
-        return self._my_ip
-
-    @property
-    def manager_ip(self):
-        if self._manager_ip:
-            return self._manager_ip
-
-        self.manager_side_cli('-i isup manager')
-        ip = self.manager_side_cli.get('ip')[0]
-        self._manager_ip = ip
-        EnvironmentFactory.set_settings(manager_ip=ip)
-        return ip
-
-    @property
-    def manager_host(self):
-        """ default is that the manager is registered on the external ip
-        :return: the hostname used to connect to manager.
-        """
-        return self.manager_ip
-
-    # This one is inferred and should not be overridden
-    def client2executor_tunnel(self, executor_host, executor_port):
-        manager_host_binding, manager_port_binding = self.client2manager_proxy.env_call('communication',
-                                                                                        'manager2executor_tunnel',
-                                                                                        executor_host,
-                                                                                        executor_port)
-        host, port = self.client2manager_tunnel(manager_host=manager_host_binding, manager_port=manager_port_binding)
-        return host, port
-
-    # This one is inferred and should not be overridden
-    def executor2client_tunnel(self, client_host, client_port):
-        manager_host_binding, manager_port_binding = self.executor2manager_proxy.env_call('communication',
-                                                                                          'manager2client_tunnel',
-                                                                                          client_host,
-                                                                                          client_port)
-        host, port = self.executor2manager_tunnel(manager_host=manager_host_binding, manager_port=manager_port_binding)
-        return host, port
-
-    # *Manager proxies*
-    @property
-    def client2manager_proxy(self, manager_host=None, manager_port=None):
-        if not self._manager_proxy:
-            local_host, local_port = self.client2manager_tunnel(manager_host=manager_host, manager_port=manager_port)
-            self._manager_proxy = WrappedProxy('remote_execution.manager@{0}:{1}'.format(local_host, local_port))
-        return self._manager_proxy
-
-    @property
-    def executor2manager_proxy(self, manager_host=None, manager_port=None):
-        if not self._manager_proxy:
-            local_host, local_port = self.executor2manager_tunnel(manager_host=manager_host, manager_port=manager_port)
-            self._manager_proxy = WrappedProxy('remote_execution.manager@{0}:{1}'.format(local_host, local_port))
-        return self._manager_proxy
-
-
 class BashMixin(object):
     @staticmethod
     def bash_prompt(work_dir):
@@ -411,6 +237,186 @@ class SSHMixin(object):
         s.sendline('cd {0}'.format(work_dir))
         s.prompt()
         return s
+
+
+class _CommunicationRequired(Environment):
+    __metaclass__ = abc.ABCMeta
+
+    # Remote commandlines always needed to get from client to manager side.
+    # in some cases it may be necessary to get to the executor side and from executor to manager
+    # noinspection PyArgumentList,PyArgumentList
+    @abc.abstractmethod
+    def make_remote_cli_client2manager(self):
+        return RemoteCommandline(None)
+
+    # optional
+    # noinspection PyArgumentList,PyArgumentList
+    @abc.abstractmethod
+    def make_remote_cli_manager2executor(self):
+        return RemoteCommandline(None)
+
+    # optional
+    # noinspection PyArgumentList,PyArgumentList
+    @abc.abstractmethod
+    def make_remote_cli_executor2manager(self):
+        return RemoteCommandline(None)
+
+    # Tunnels are needed from client and executor to manager to obtain manager_proxy.
+    # Manager tunnels should only take optional address arguments.
+    # Furthermore a proxy is needed from client and manager to the executor, these should take address arguments
+    # Optionally proxies from manager and executor can be implemented with address arguments.
+    #  All tunnels return the *local* bindings for host and port
+
+    # *Manager tunnels*
+    @abc.abstractmethod
+    def client2manager_tunnel(self, manager_host=None, manager_port=None):
+        host = str()
+        port = int()
+        return host, port
+
+    @abc.abstractmethod
+    def executor2manager_tunnel(self, manager_host=None, manager_port=None):
+        host = str()
+        port = int()
+        return host, port
+
+    # *Executor tunnels*
+    @abc.abstractmethod
+    def manager2executor_tunnel(self, executor_host, executor_port):
+        host = str()
+        port = int()
+        return host, port
+
+    # *Client tunnels* (optional)
+    @abc.abstractmethod
+    def manager2client_tunnel(self, client_host, client_port):
+        host = str()
+        port = int()
+        return host, port
+
+
+class _CommunicationOptionals(object):
+    @property
+    def executor_popen(self):
+        raise NotImplementedError('Method is marked as non-available for this configuration')
+
+    def manager2client_tunnel(self, client_host, client_port):
+        raise NotImplementedError('Method is marked as non-available for this configuration')
+
+    def make_remote_cli_manager2executor(self):
+        raise NotImplementedError('Method is marked as non-available for this configuration')
+
+    def make_remote_cli_executor2manager(self):
+        raise NotImplementedError('Method is marked as non-available for this configuration')
+
+
+class CommunicationEnvironment(_CommunicationOptionals, _CommunicationRequired, BashMixin):
+    def __init__(self):
+        super(Environment, self).__init__()
+        self.my_location = None
+        self._my_ip = None
+
+        self.manager_port = None
+        self._manager_ip = None
+        self._manager_proxy = None
+
+        self._manager_side_cli = None
+        self._client_side_cli = None
+        self._executor_side_cli = None
+
+    def set_settings(self, manager_port=None, manager_ip=None,
+                     manager_work_dir=None, client_work_dir=None, executor_work_dir=None,
+                     **settings):
+
+        self.manager_port = manager_port or self.manager_port
+        self._manager_ip = manager_ip or self._manager_ip
+        self.is_attr_set('manager_port', int)
+        super(CommunicationEnvironment, self).set_settings(**settings)
+
+    @property
+    def manager_side_cli(self):
+        if self._manager_side_cli:
+            return self._manager_side_cli
+        if self.my_location == 'client':
+            self._manager_side_cli = self.make_remote_cli_client2manager()
+            return self._manager_side_cli
+        if self.my_location == 'executor':
+            self._manager_side_cli = self.make_remote_cli_executor2manager()
+            return self._manager_side_cli
+        if self.my_location == 'manager':
+            self._manager_side_cli = self.spoof_manager_remote_cli()
+        raise Exception('Cannot request a manager command line when my_location is unknown')
+
+    @property
+    def client2manager_side_cli(self):
+        self.my_location = 'client'
+        return self.manager_side_cli
+
+    @property
+    def executor2manager_side_cli(self):
+        self.my_location = 'executor'
+        return self.manager_side_cli
+
+    @property
+    def my_ip(self):
+        if not self._my_ip:
+            self._my_ip = get_external_ip()
+        return self._my_ip
+
+    @property
+    def manager_ip(self):
+        if self._manager_ip:
+            return self._manager_ip
+
+        if self.my_location != 'manager':
+            self.manager_side_cli('-i isup manager')
+            ip = self.manager_side_cli.get('ip')[0]
+        else:
+            ip = self.my_ip
+
+        self._manager_ip = ip
+        EnvironmentFactory.set_settings(manager_ip=ip)
+        return ip
+
+    @property
+    def manager_host(self):
+        """ default is that the manager is registered on the external ip
+        :return: the hostname used to connect to manager.
+        """
+        return self.manager_ip
+
+    # This one is inferred and should not be overridden
+    def client2executor_tunnel(self, executor_host, executor_port):
+        manager_host_binding, manager_port_binding = self.client2manager_proxy.env_call('communication',
+                                                                                        'manager2executor_tunnel',
+                                                                                        executor_host,
+                                                                                        executor_port)
+        host, port = self.client2manager_tunnel(manager_host=manager_host_binding, manager_port=manager_port_binding)
+        return host, port
+
+    # This one is inferred and should not be overridden
+    def executor2client_tunnel(self, client_host, client_port):
+        manager_host_binding, manager_port_binding = self.executor2manager_proxy.env_call('communication',
+                                                                                          'manager2client_tunnel',
+                                                                                          client_host,
+                                                                                          client_port)
+        host, port = self.executor2manager_tunnel(manager_host=manager_host_binding, manager_port=manager_port_binding)
+        return host, port
+
+    # *Manager proxies*
+    @property
+    def client2manager_proxy(self, manager_host=None, manager_port=None):
+        if not self._manager_proxy:
+            local_host, local_port = self.client2manager_tunnel(manager_host=manager_host, manager_port=manager_port)
+            self._manager_proxy = WrappedProxy('remote_execution.manager@{0}:{1}'.format(local_host, local_port))
+        return self._manager_proxy
+
+    @property
+    def executor2manager_proxy(self, manager_host=None, manager_port=None):
+        if not self._manager_proxy:
+            local_host, local_port = self.executor2manager_tunnel(manager_host=manager_host, manager_port=manager_port)
+            self._manager_proxy = WrappedProxy('remote_execution.manager@{0}:{1}'.format(local_host, local_port))
+        return self._manager_proxy
 
 
 class Client2ManagerThroughSSH(SSHMixin, CommunicationEnvironment):
@@ -518,7 +524,7 @@ class DTUHPCCommunication(Client2ManagerThroughSSH, ManagerAndExecutorOnLAN):
 class TethysCommunication(Client2ManagerThroughSSH, Manager2ExecutorThroughSSH, Executor2ManagerThroughSSH):
     pass
 
-class CommManagerAndExecutorOnSameMachine(BashMixin, CommunicationEnvironment):
+class CommManagerAndExecutorOnSameMachine(CommunicationEnvironment):
     @property
     def executor_popen(self):
         return Popen
@@ -535,7 +541,7 @@ class CommManagerAndExecutorOnSameMachine(BashMixin, CommunicationEnvironment):
         return manager_host, manager_port
 
 
-class CommClientAndManagerOnSameMachine(BashMixin, CommunicationEnvironment):
+class CommClientAndManagerOnSameMachine(CommunicationEnvironment):
     def manager2client_tunnel(self, client_host, client_port):
         return client_host, client_port
 
