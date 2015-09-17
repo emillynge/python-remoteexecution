@@ -23,6 +23,7 @@ class Manager(EnvironmentCallMixin, object):
                            'completed': 5,
                            'orphaned': 6}
         self.logger = logger.duplicate(logger_name='Manager') if logger else DummyLogger()
+        self.env_logger = self.logger.duplicate('Env')
         self.running = False
         self.latest_sub_id = -1
         self.subs = defaultdict(dict)
@@ -148,7 +149,7 @@ class Manager(EnvironmentCallMixin, object):
         if self.has_reached_state(sub_id, 'submitted'):
             raise Exception('Cannot submit twice')
         ex_env = execution_environment()
-        ex_env.logger = self.logger.duplicate('ExEnv')
+        ex_env.logger = self.env_logger
         job_id = str(ex_env.job_start(self.subid2sh(sub_id)))
         self.logger.debug('Started job'.format(job_id))
         self.subs[sub_id]['job_id'] = job_id
@@ -207,7 +208,7 @@ class Manager(EnvironmentCallMixin, object):
             return None, time_sec
 
         ex_env = execution_environment()
-        ex_env.logger = self.logger.duplicate('ExEnv')
+        ex_env.logger = self.env_logger
 
         state, time_str = ex_env.job_stat(self.subs[sub_id]['job_id'])
         time_sec = self.time_str2time_sec(time_str)
