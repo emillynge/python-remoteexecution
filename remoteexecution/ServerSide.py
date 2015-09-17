@@ -174,7 +174,7 @@ class Manager(EnvironmentCallMixin, object):
 
     def has_reached_state(self, sub_id, state):
         if state not in self._state2num:
-            InvalidUserInput('', 'state', expected=self._state2num.keys(), found=state, should='must be one of')
+            InvalidUserInput('', 'state', expected=self._state2num.keys(), found=state, but_requires='must be one of')
         return self.state_num(sub_id) >= self._state2num[state]
 
     def in_state(self, sub_id, state):

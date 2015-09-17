@@ -750,16 +750,20 @@ class RemoteCommandline(Commandline):
 
 class InvalidUserInput(Exception):
     # noinspection PyProtectedMember,PyProtectedMember
-    def __init__(self, message, argname="", argnames=tuple(), expected=None, found=None, should=None, indent=3,
-                 **kwargs):
+    def __init__(self, message, argname="", argnames=tuple(), expected=None, found=None, but_requires=None, indent=3,
+                 declaration_frame="method",**kwargs):
         if argname:
             argnames = (argname,)
         calling_frame = sys._getframe(indent)
         method_frame = sys._getframe(indent - 1)
+        if declaration_frame == 'method':
+            declaration, input_args, method_name = self.get_method_declaration(method_frame)
+        else:
+            declaration, input_args, method_name = self.get_call_declaration(calling_frame)
 
         tb = tbutils.TracebackInfo.from_frame(frame=calling_frame, limit=1)
         tb_str = tb.get_formatted()
-        declaration, input_args, method_name = self.get_declaration(method_frame)
+
 
         self.data = {'expected': expected,
                      'found': found,
@@ -769,12 +773,42 @@ class InvalidUserInput(Exception):
                      'message': message,
                      'declaration': declaration,
                      'input_args': input_args,
-                     'arg_no': [input_args.index(argname) + 1 for argname in argnames if argname in input_args],
-                     'should': should}
-
+                     'arg_no': [input_args.index(argname) + 1 for argname in argnames if argname in input_args] or "",
+                     'should': but_requires}
         super(InvalidUserInput, self).__init__(self.message, **kwargs)
 
-    def get_declaration(self, frame):
+    def get_call_declaration(self, frame):
+        lno_start = frame.f_code.co_firstlineno
+        lno_end = frame.f_lineno
+
+        with open(frame.f_code.co_filename) as fp:
+            for k in range(lno_start - 1):
+                fp.readline()
+            search_space = [fp.readline() for  k in range(lno_end - lno_start + 1)]
+        search_space.reverse()
+
+        declaration = list()
+        paran_counts = 0
+        for line in search_space:
+            for char in line:
+                if char == ')':
+                    paran_counts += 1
+                    continue
+                if char == '(':
+                    paran_counts -= 1
+                    continue
+            declaration.insert(0, line)
+            if paran_counts == 0:
+                break
+
+        declaration = ''.join(declaration)
+        input_str = re.findall('^\W+\w[^\(]*\((.+)\)'.format(frame.f_code.co_name),
+                                   declaration, re.DOTALL)[0]
+        declaration_str = re.findall('^\W+([^\(]+\(.+\))'.format(frame.f_code.co_name), declaration, re.DOTALL)[0]
+
+        return declaration_str, self.parse_input_str(input_str), frame.f_code.co_name
+
+    def get_method_declaration(self, frame):
         lno = frame.f_code.co_firstlineno
         with open(frame.f_code.co_filename) as fp:
             for k in range(lno - 1):
@@ -795,8 +829,13 @@ class InvalidUserInput(Exception):
 
     @property
     def message(self):
-        message = "Invalid input to {declaration}{pre_message}\t".format(**self.data)
+        message = "{pre_message} Invalid input to:\n\t {declaration}\t".format(**self.data)
+        if self.data['message']:
+            message += self.data['message'] + '\n\t'
+
         if self.data['argnames']:
+            if isinstance(self.data['argnames'], tuple) and len(self.data['argnames']) == 1:
+                self.data['argnames'] = self.data['argnames'][0]
             message += 'argument {arg_no} "{argnames}"'.format(**self.data)
 
         if self.data['found']:
@@ -804,35 +843,36 @@ class InvalidUserInput(Exception):
 
         if self.data['expected']:
             message += ' but {method_name} requires {should} "{expected}"'.format(**self.data)
-
-        if self.data['message']:
-            message += '\n\t' + self.data['message']
         return message
 
     @staticmethod
     def compare(argname, expect, found, message="", equal=True):
         if equal and expect != found:
-            raise InvalidUserInput(message, argname, expect, found, should='it to be')
+            raise InvalidUserInput(message, argname, expect, found, but_requires='it to be')
         elif not equal and expect == found:
-            raise InvalidUserInput(message, argname, expect, found, should='it not to be')
+            raise InvalidUserInput(message, argname, expect, found, but_requires='it not to be')
 
     @staticmethod
-    def isinstance(argname, expect, found, message="", equal=True):
+    def isinstance(argname, expect, found, message="", equal=True, **kwargs):
+
         if not isinstance(found, expect) and equal:
-            raise InvalidUserInput(message, argname, tuple(cls.__name__ for cls in expect), found,
-                                   should='should have this class')
+            raise InvalidUserInput(message, argname=argname, expected=tuple(cls.__name__ for cls in expect),
+                                   found=found.__class__.__name__, but_requires='it to be this class', **kwargs)
         elif isinstance(found, expect) and not equal:
-            raise InvalidUserInput(message, argname, tuple(cls.__name__ for cls in expect), found,
-                                   should='should not have this class')
+            raise InvalidUserInput(message, argname=argname, expected=tuple(cls.__name__ for cls in expect),
+                                   found=found.__class__.__name__, but_requires='it to be this class', **kwargs)
 
     @staticmethod
     def parse_input_str(input_str):
         quotes = defaultdict(int)
+        pairs = {'(': ')', '[': ']', '{': '}'}
         input_args = list()
         curr_arg = ""
+        kwarg = False
         for char in input_str:
+
             if char in '([{':
-                quotes[char] += 1
+                quotes[pairs[char]] += 1
                 continue
 
             if char in ')]}':
@@ -841,14 +881,20 @@ class InvalidUserInput(Exception):
                     del (quotes[char])
                 continue
 
-            if char in '\n\r\t':
+            if char in '\n\r\t ':
                 continue
 
             if char == ',' and not quotes:
                 input_args.append(curr_arg)
                 curr_arg = ''
+                kwarg = False
                 continue
 
+            if char == '=':
+                kwarg = True
+
+            if kwarg:
+                continue
             curr_arg += char
         input_args.append(curr_arg)
         input_args = [a.strip(' ') for a in input_args]
