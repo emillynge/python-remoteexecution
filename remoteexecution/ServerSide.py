@@ -207,6 +207,7 @@ class Manager(EnvironmentCallMixin, object):
             return None, time_sec
 
         ex_env = execution_environment()
+        ex_env.logger = self.logger.duplicate('ExEnv')
 
         state, time_str = ex_env.job_stat(self.subs[sub_id]['job_id'])
         time_sec = self.time_str2time_sec(time_str)

@@ -684,9 +684,12 @@ class PopenExecution(ExecutionEnvironment):
         return job_id
 
     def job_stat(self, job_id):
+        self.logger.debug(job_id)
         comm_env = communication_environment()
         _POpen = comm_env.executor_popen
-        p_stat = _POpen(['ps', '-p', job_id], stdout=PIPE)
+        commands = ['ps', '-p', job_id]
+        self.logger.debug(commands)
+        p_stat = _POpen(commands, stdout=PIPE)
         p_stat.stdout.readline()
         line = p_stat.stdout.readline()
         rexp = re.findall('(\d\d:\d\d:\d\d) (.+?)((<defunct>)|($))', line)
