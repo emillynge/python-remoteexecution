@@ -433,7 +433,7 @@ class Client2ManagerThroughSSH(SSHMixin, CommunicationEnvironment):
         ex_env = execution_environment()
 
         def ssh_instance_generator():
-            self.ssh_prompt(self.client2manager_ssh_settings, ex_env.manager_work_dir)
+            return self.ssh_prompt(self.client2manager_ssh_settings, ex_env.manager_work_dir)
 
         cli = RemoteCommandline(ssh_instance_generator, ex_env.manager_interpreter, ex_env.manager_target)
         return cli
@@ -459,7 +459,7 @@ class Executor2ManagerThroughSSH(SSHMixin, CommunicationEnvironment):
         ex_env = execution_environment()
 
         def ssh_instance_generator():
-            self.ssh_prompt(self.executor2manager_ssh_settings, ex_env.manager_work_dir)
+           return self.ssh_prompt(self.executor2manager_ssh_settings, ex_env.manager_work_dir)
 
         cli = RemoteCommandline(ssh_instance_generator, ex_env.manager_interpreter, ex_env.manager_target)
         return cli
@@ -484,7 +484,7 @@ class Manager2ExecutorThroughSSH(SSHMixin, CommunicationEnvironment):
         ex_env = execution_environment()
 
         def ssh_instance_generator():
-            self.ssh_prompt(self.manager2executor_ssh_settings, ex_env.executor_work_dir)
+            return self.ssh_prompt(self.manager2executor_ssh_settings, ex_env.executor_work_dir)
 
         cli = RemoteCommandline(ssh_instance_generator, ex_env.executor_interpreter, ex_env.executor_target)
         return cli
@@ -515,6 +515,8 @@ class ManagerAndExecutorOnLAN(CommunicationEnvironment):
 class DTUHPCCommunication(Client2ManagerThroughSSH, ManagerAndExecutorOnLAN):
     pass
 
+class TethysCommunication(Client2ManagerThroughSSH, Manager2ExecutorThroughSSH, Executor2ManagerThroughSSH):
+    pass
 
 class CommManagerAndExecutorOnSameMachine(BashMixin, CommunicationEnvironment):
     @property
