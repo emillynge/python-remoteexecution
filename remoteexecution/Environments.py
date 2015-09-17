@@ -671,6 +671,7 @@ class PopenExecution(ExecutionEnvironment):
         _POpen = comm_env.executor_popen
         with open(execution_script_location) as fp:
             command = fp.readline().split(' ')
+            print(command)
         p = _POpen([command])
         job_id = p.pid
         #p1 = _POpen(['sh', execution_script_location])
