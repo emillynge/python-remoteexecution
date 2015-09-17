@@ -256,7 +256,7 @@ class CommunicationEnvironment(_CommunicationOptionals, _CommunicationRequired):
                      **settings):
 
         self.manager_port = manager_port or self.manager_port
-        self._manager_ip = manager_ip or self.manager_port
+        self._manager_ip = manager_ip or self.manager_ip
         self.is_attr_set('manager_port', int)
         super(CommunicationEnvironment, self).set_settings(**settings)
 
