@@ -274,6 +274,17 @@ class EnvironmentCallMixin:
 
 
 class TunnelForwarder(SSHTunnelForwarder):
+    def __init__(self, *args, **kwargs):
+        super(TunnelForwarder, self).__init__(*args, **kwargs)
+        for srv in self._server_list:
+            self.suppress_server_errors(srv)
+
+    @staticmethod
+    def suppress_server_errors(srv):
+        def suppres_error(*args):
+            pass
+        setattr(srv, 'handle_error', suppres_error)
+
     def on_the_fly_tunnel(self, local_bind_address=None, remote_bind_address=None):
         # Check if the requested tunnels already has a valid server
         for _srv in self._server_list:
@@ -303,6 +314,8 @@ class TunnelForwarder(SSHTunnelForwarder):
             self.start()
 
         srv = self.make_ssh_forward_server(remote_bind_address, local_bind_address)
+        self.suppress_server_errors(srv)
+
         self._server_list.append(srv)
         thread = threading.Thread(
             target=self.serve_forever_wrapper, args=(srv,),
@@ -314,7 +327,6 @@ class TunnelForwarder(SSHTunnelForwarder):
         if self.tunnel_is_up[srv.local_address]:
             self.logger.error("An error occurred while opening tunnel.")
         return srv.local_host, srv.local_port
-
 
 def import_obj_from(module_name, obj_name):
     return import_module(module_name).__dict__[obj_name]
@@ -582,6 +594,7 @@ class Commandline(object):
         from .ServerSide import Manager
 
         comm_env = communication_environment()
+        comm_env.my_location = 'manager'
         self.logger.debug("Initializing manager")
         daemon = WrappedDaemon(port=comm_env.manager_port, host=comm_env.manager_host)
         self.logger.debug("Init Manager")
@@ -591,6 +604,7 @@ class Commandline(object):
         self.logger.info("putting manager in request loop")
         self.stdout('blocking', datetime.datetime.now().isoformat())
         daemon.requestLoop(loopCondition=manager.is_alive)
+        daemon.close()
 
     def stop_manager(self):
         try:

@@ -2,9 +2,9 @@ from __future__ import (absolute_import, print_function, unicode_literals, divis
 
 __author__ = 'emil'
 from .ServerSide import (Manager)
-from .Utils import (InvalidUserInput, DummyLogger, RemoteExecutionLogger, WrappedProxy)
+from .Utils import (InvalidUserInput, DummyLogger, RemoteExecutionLogger, WrappedProxy, Commandline)
 
-from .Environments import (communication_environment, execution_environment)
+from .Environments import (communication_environment, execution_environment, EnvironmentFactory)
 from Pyro4 import errors as pyro_errors
 from time import sleep
 import Pyro4
@@ -52,6 +52,7 @@ class Client(object):
 
     def isup_manager(self):
         self.remote_commandline('-i -f mylog -s isup manager')
+        EnvironmentFactory.set_settings(manager_ip=self.remote_commandline.get('ip')[0])
         return self.remote_commandline.get('return')[0]
 
     def start_manager(self):
@@ -66,9 +67,20 @@ class Client(object):
         try:
             while True:
                 self.manager_proxy.is_alive()
+                sleep(.25)
         except pyro_errors.CommunicationError:
             pass
-        self.start_manager()
+        sleep(3)
+        for _ in range(5):
+            try:
+                self.start_manager()
+                break
+            except Commandline.CommandLineException as e:
+                if 'Errno 98' in e.message:
+                    sleep(1)
+                else:
+                    raise e
+
         self.logger.info("Manager restarted")
 
 
