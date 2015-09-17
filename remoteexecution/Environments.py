@@ -159,7 +159,8 @@ class Environment(object):
 
     def is_attr_set(self, attr_name, expected_type):
         attr = getattr(self, attr_name)
-        InvalidUserInput.isinstance(attr_name, expected_type, attr, message='missing environment settings')
+        InvalidUserInput.isinstance(attr_name, expected_type, attr, message='missing environment settings', indent=4,
+                                    declaration_frame='calling')
 
     def __repr__(self):
         return '{"' + self.__class__.__module__ + '":"' + self.__class__.__name__ + '"}'
@@ -560,14 +561,14 @@ class CommAllOnSameMachine(CommManagerAndExecutorOnSameMachine, CommClientAndMan
 
 class ExecutionEnvironment(Environment):
     def __init__(self):
-        self.client_interpreter = None
-        self.client_target = None
-        self.client_work_dir = None
-        self.manager_interpreter = None
-        self.manager_target = None
+        self.client_interpreter = 'python'
+        self.client_target = 'remote-exec-cli'
+        self.client_work_dir = os.path.curdir
+        self.manager_interpreter = 'python'
+        self.manager_target = 'remote-exec-cli'
         self.manager_work_dir = None
-        self.executor_interpreter = None
-        self.executor_target = None
+        self.executor_interpreter = 'python'
+        self.executor_target = 'remote-exec-cli'
         self.executor_work_dir = None
         self.output_cls = namedtuple('Output', ['stdout', 'stderr'])
         super(ExecutionEnvironment, self).__init__()
