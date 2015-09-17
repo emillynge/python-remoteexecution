@@ -976,7 +976,7 @@ class WrappedObject(object):
                 faf = args[1]
                 state = self._tickets[ticket].get('state', 'first')
                 if state != 'first':
-                    self.logger.debug('Ticket {0} - already called. state: {1}\t Waiting...'.format(ticket, state))
+                    self.logger.debug('{0} - already called. state: {1}\t Waiting...'.format(ticket, state))
                     while self._tickets[ticket]['state'] == 'running':
                         sleep(1)
                     if self._tickets[ticket]['state'] == 'error':
@@ -986,7 +986,7 @@ class WrappedObject(object):
                     return self._tickets[ticket]['result']
 
                 args = args[2:]
-                self.logger.debug('Ticket {3} - Calling local method {2} with : {0} , {1}'.format(truncate_object(args),
+                self.logger.debug('{3} - Calling local method {2} with : {0} , {1}'.format(truncate_object(args),
                                                                                      truncate_object(kwargs), item, ticket))
                 if ser_env.serialize_wrapper:
                     decoded = ser_env.decoder(*args)
@@ -995,7 +995,7 @@ class WrappedObject(object):
                 try:
                     self._tickets[ticket]['state'] = 'running'
                     result = super(WrappedObject, self).__getattribute__(item).__call__(*args, **kwargs)
-                    self.logger.debug('Ticket {1} - Recieved {1} from local method {0}'.format(item, truncate_object(result), ticket))
+                    self.logger.debug('{2} - Recieved {1} from local method {0}'.format(item, truncate_object(result), ticket))
                     if ser_env.serialize_wrapper:
                         result = ser_env.encoder(result)
                     self._tickets[ticket]['result'] = result
@@ -1004,7 +1004,7 @@ class WrappedObject(object):
                 except Exception as e:
                     self._tickets['state'] = 'error'
                     self._tickets['error'] = e
-                    self.logger.error('Ticket {0} - Exception during function call'.format(ticket), exc_info=True)
+                    self.logger.error('{0} - Exception during function call'.format(ticket), exc_info=True)
                     raise e
 
             return call
