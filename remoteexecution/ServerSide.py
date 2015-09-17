@@ -148,6 +148,7 @@ class Manager(EnvironmentCallMixin, object):
         if self.has_reached_state(sub_id, 'submitted'):
             raise Exception('Cannot submit twice')
         ex_env = execution_environment()
+        ex_env.logger = self.logger.duplicate('ExEnv')
         job_id = str(ex_env.job_start(self.subid2sh(sub_id)))
         self.logger.debug('Started job'.format(job_id))
         self.subs[sub_id]['job_id'] = job_id

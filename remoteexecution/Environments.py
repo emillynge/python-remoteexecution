@@ -323,6 +323,7 @@ class CommunicationEnvironment(_CommunicationOptionals, _CommunicationRequired, 
         self._manager_side_cli = None
         self._client_side_cli = None
         self._executor_side_cli = None
+        self.logger = DummyLogger()
 
     def set_settings(self, manager_port=None, manager_ip=None,
                      manager_work_dir=None, client_work_dir=None, executor_work_dir=None,
@@ -578,6 +579,7 @@ class ExecutionEnvironment(Environment):
         self.executor_interpreter = 'python'
         self.executor_target = 'remote-exec-cli'
         self.executor_work_dir = None
+        self.logger = DummyLogger()
         self.output_cls = namedtuple('Output', ['stdout', 'stderr'])
         super(ExecutionEnvironment, self).__init__()
 
@@ -671,7 +673,7 @@ class PopenExecution(ExecutionEnvironment):
         _POpen = comm_env.executor_popen
         with open(execution_script_location) as fp:
             command = fp.readline().split(' ')
-            print(command)
+            self.logger.debug(command)
         p = _POpen([command])
         job_id = p.pid
         #p1 = _POpen(['sh', execution_script_location])
