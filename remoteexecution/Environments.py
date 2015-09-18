@@ -684,6 +684,7 @@ class PopenExecution(ExecutionEnvironment):
         p = _POpen(commands, stderr=True, stdout=True)
         sleep(5)
         out_lines = p.stdout.read()
+        self.logger.warning(out_lines)
         err_lines = p.stderr.read()
         if err_lines:
             self.logger.warning(err_lines)
