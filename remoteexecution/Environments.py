@@ -502,14 +502,19 @@ class Manager2ExecutorThroughSSH(SSHMixin, CommunicationEnvironment):
 
     @property
     def executor_popen(self):
-        for ssh_prompt in self.executor_popen_ssh:
-            if not ssh_prompt.is_locked():
-                break
-        else: # executed if no break occurred, i.e no unlocked prompts found
-            ssh_prompt = self.ssh_instance_manager2executor()
+        def get_free_prompt():
+            for ssh_prompt in self.executor_popen_ssh:
+                if not ssh_prompt.is_locked():
+                    break
+            else: # executed if no break occurred, i.e no unlocked prompts found
+                ssh_prompt = self.ssh_instance_manager2executor()
+                self.executor_popen_ssh.append(ssh_prompt)
+
+        def _POpen(prompt, *args, **kwargs):
+            partial(SSHPopen, work_dir=ex_env.executor_work_dir, ssh_prompt=prompt())
 
         ex_env = execution_environment()
-        return partial(SSHPopen, work_dir=ex_env.executor_work_dir, ssh_prompt=ssh_prompt)
+        return partial(_POpen, get_free_prompt)
 
 
 class ManagerAndExecutorOnLAN(CommunicationEnvironment):
@@ -675,11 +680,12 @@ class PopenExecution(ExecutionEnvironment):
     def job_start(self, execution_script_location):
         comm_env = communication_environment()
         _POpen = comm_env.executor_popen
-        self.logger.debug(_POpen._owner)
+
         with open(execution_script_location) as fp:
             commands = fp.readline().split(' ')
             self.logger.debug(commands)
         p = _POpen(commands)
+        self.logger.debug(p._owner)
         job_id = p.pid
         #p1 = _POpen(['sh', execution_script_location])
         #p2 = _POpen(['ps', '--ppid', str(p1.pid)], stdout=PIPE)
@@ -692,10 +698,10 @@ class PopenExecution(ExecutionEnvironment):
         self.logger.debug(job_id)
         comm_env = communication_environment()
         _POpen = comm_env.executor_popen
-        self.logger.debug(_POpen._owner)
         commands = ['ps', '-p', job_id]
         self.logger.debug(commands)
         p_stat = _POpen(commands, stdout=PIPE, stderr=PIPE)
+        self.logger.debug(p_stat._owner)
         self.logger.debug(p_stat.stdout.readline())
         line = p_stat.stdout.readline()
         self.logger.debug(line)
