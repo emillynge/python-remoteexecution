@@ -143,6 +143,7 @@ class Environment(object):
 
     def __init__(self):
         self.settings = dict()
+        self.logger = DummyLogger()
 
     def set_attribute_if_in_settings(self, *attributes, **settings):
         _settings = deepcopy(settings)
@@ -510,7 +511,6 @@ class Manager2ExecutorThroughSSH(SSHMixin, CommunicationEnvironment):
             self.executor_popen_ssh.append(ssh_prompt)
 
         ex_env = execution_environment()
-        self.logger.debug('returning Popen')
         return SSHPopen(*args, work_dir=ex_env.executor_work_dir, ssh_prompt=ssh_prompt, logger=self.logger, **kwargs)
 
 
@@ -585,7 +585,6 @@ class ExecutionEnvironment(Environment):
         self.executor_interpreter = 'python'
         self.executor_target = 'remote-exec-cli'
         self.executor_work_dir = None
-        self.logger = DummyLogger()
         self.output_cls = namedtuple('Output', ['stdout', 'stderr'])
         super(ExecutionEnvironment, self).__init__()
 
@@ -676,6 +675,7 @@ class ExecAllOnSameMachine(ExecManagerAndExecutorOnSameMachine, ExecClientAndMan
 class PopenExecution(ExecutionEnvironment):
     def job_start(self, execution_script_location):
         comm_env = communication_environment()
+        comm_env.logger = self.logger
         _POpen = comm_env.executor_popen
 
         with open(execution_script_location) as fp:
@@ -692,6 +692,7 @@ class PopenExecution(ExecutionEnvironment):
 
     def job_stat(self, job_id):
         comm_env = communication_environment()
+        comm_env.logger = self.logger
         _POpen = comm_env.executor_popen
         commands = ['ps', '-p', job_id]
         self.logger.debug(commands)
