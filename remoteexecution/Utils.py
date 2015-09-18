@@ -457,7 +457,7 @@ class TunnelForwarder(SSHTunnelForwarder):
         thread.start()
         self._threads.append(thread)
         self.tunnel_is_up[srv.local_address] = self.local_is_up(srv.local_address)
-        if self.tunnel_is_up[srv.local_address]:
+        if not self.tunnel_is_up[srv.local_address]:
             self.logger.error("An error occurred while opening tunnel.")
         return srv.local_host, srv.local_port
 

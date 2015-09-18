@@ -219,7 +219,7 @@ class SSHMixin(object):
         if 'ssh_username' in ssh_settings:
             connection += '@' + ssh_settings['ssh_username']
         if connection in self.tunnel_managers:
-            return self.tunnel_managers[connection].on_the_fly_tunnel(local_bind_address=None, remote_bind_address=None)
+            return self.tunnel_managers[connection].on_the_fly_tunnel(local_bind_address=local_bind_address, remote_bind_address=remote_bind_address)
         server = TunnelForwarder(
             local_bind_address=local_bind_address,
             remote_bind_address=remote_bind_address,
