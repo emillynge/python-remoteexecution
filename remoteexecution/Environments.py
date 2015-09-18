@@ -511,7 +511,7 @@ class Manager2ExecutorThroughSSH(SSHMixin, CommunicationEnvironment):
                 self.executor_popen_ssh.append(ssh_prompt)
 
         def _POpen(prompt, *args, **kwargs):
-            partial(SSHPopen, work_dir=ex_env.executor_work_dir, ssh_prompt=prompt())
+            return partial(SSHPopen, work_dir=ex_env.executor_work_dir, ssh_prompt=prompt())
 
         ex_env = execution_environment()
         return partial(_POpen, get_free_prompt)
