@@ -223,7 +223,7 @@ class SSHPopen(object):
         self.sendline('python -c "' + '; '.join(python_lines) + '"')
         self.ssh_session.expect('[^\n\r]+\w+-sshIO')
         self.io_dir = self.ssh_session.after
-        self.logger = logger.duplicate('POpen/' + self.io_dir)
+        self.logger = logger.duplicate('POpen/' + self.io_dir.split('-')[1])
         self.ssh_session.expect('[^\n\r]+')
         self.sep = self.ssh_session.after
         self.io_in = self.io_dir + self.sep + 'nohup.in'

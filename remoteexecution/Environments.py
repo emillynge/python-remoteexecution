@@ -704,6 +704,7 @@ class PopenExecution(ExecutionEnvironment):
         p_stat.wait()
         p_stat.stdout.readline()    # dumping first line
         line = p_stat.stdout.readline()
+        self.logger.debug(line)
 
         err_lines = p_stat.stderr.read()
         if err_lines:
