@@ -682,6 +682,10 @@ class PopenExecution(ExecutionEnvironment):
             commands = fp.readline().split(' ')
             self.logger.debug(commands)
         p = _POpen(commands, stderr=True)
+        sleep(5)
+        err_lines = p.stderr.read()
+        if err_lines:
+            self.logger.warning(err_lines)
         job_id = p.pid
         #p1 = _POpen(['sh', execution_script_location])
         #p2 = _POpen(['ps', '--ppid', str(p1.pid)], stdout=PIPE)
