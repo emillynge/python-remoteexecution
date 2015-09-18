@@ -204,7 +204,7 @@ class SSHPopen(object):
     # noinspection PyUnusedLocal
     def __init__(self, commands, work_dir='.', ssh_prompt=None, ssh_settings=None, stdout=None, stderr=None,
                  stdin=None, logger=DummyLogger()):
-        self.logger = logger.duplicate('POpen')
+
         self.ssh_session = ssh_prompt
         if not ssh_prompt:
             self.ssh_session = SSHPrompt()
@@ -223,6 +223,7 @@ class SSHPopen(object):
         self.sendline('python -c "' + '; '.join(python_lines) + '"')
         self.ssh_session.expect('[^\n\r]+\w+-sshIO')
         self.io_dir = self.ssh_session.after
+        self.logger = logger.duplicate('POpen/' + self.io_dir)
         self.ssh_session.expect('[^\n\r]+')
         self.sep = self.ssh_session.after
         self.io_in = self.io_dir + self.sep + 'nohup.in'
