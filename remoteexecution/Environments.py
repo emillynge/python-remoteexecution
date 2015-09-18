@@ -510,7 +510,7 @@ class Manager2ExecutorThroughSSH(SSHMixin, CommunicationEnvironment):
             self.executor_popen_ssh.append(ssh_prompt)
 
         ex_env = execution_environment()
-        return SSHPopen(*args, work_dir=ex_env.executor_work_dir, ssh_prompt=ssh_prompt, **kwargs)
+        return SSHPopen(*args, work_dir=ex_env.executor_work_dir, ssh_prompt=ssh_prompt, logger=self.logger, **kwargs)
 
 
 class ManagerAndExecutorOnLAN(CommunicationEnvironment):
