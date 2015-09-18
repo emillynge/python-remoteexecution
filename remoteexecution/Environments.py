@@ -680,7 +680,7 @@ class PopenExecution(ExecutionEnvironment):
             commands = fp.readline().split(' ')
             self.logger.debug(commands)
         p = _POpen(commands)
-        self.logger.debug(p._owner)
+        self.logger.debug(p.ssh_session._owner)
         job_id = p.pid
         #p1 = _POpen(['sh', execution_script_location])
         #p2 = _POpen(['ps', '--ppid', str(p1.pid)], stdout=PIPE)
@@ -696,7 +696,7 @@ class PopenExecution(ExecutionEnvironment):
         commands = ['ps', '-p', job_id]
         self.logger.debug(commands)
         p_stat = _POpen(commands, stdout=PIPE, stderr=PIPE)
-        self.logger.debug(p_stat._owner)
+        self.logger.debug(p_stat.ssh_session._owner)
         self.logger.debug(p_stat.stdout.readline())
         line = p_stat.stdout.readline()
         self.logger.debug(line)
