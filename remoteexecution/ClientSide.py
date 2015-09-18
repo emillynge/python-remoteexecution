@@ -75,7 +75,7 @@ class Client(object):
         try:
             while True:
                 self.manager_proxy.is_alive()
-                sleep(.25)
+                sleep(1)
         except pyro_errors.CommunicationError:
             pass
         self.manager_proxy.release_socket()

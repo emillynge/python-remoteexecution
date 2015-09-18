@@ -17,12 +17,12 @@ EnvironmentFactory.set_settings(ssh_client2manager={'ssh_address_or_host': 'thin
                                 ssh_manager2executor={'ssh_address_or_host': 'tethys',
                                                       'ssh_port': 22,
                                                       'ssh_username': 's082768',
-                                                      'ssh_private_key': '/home/s082768/.ssh/id_dsa'},
+                                                      'ssh_private_key': '/home/s082768/.ssh/id_rsa'},
                                 ssh_executor2manager={'ssh_address_or_host': 'linuxterm1',
                                                       'ssh_port': 22,
                                                       'ssh_username': 's082768',
                                                       'ssh_private_key': '/home/s082768/.ssh/id_rsa'},
-                                manager_port=60000,
+                                manager_port=60010,
                                 manager_work_dir='/home/s082768/remoteexec',
                                 executor_work_dir='/home/s082768/remoteexec')
 try:
