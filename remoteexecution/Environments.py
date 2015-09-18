@@ -696,6 +696,7 @@ class PopenExecution(ExecutionEnvironment):
         p_stat = _POpen(commands, stdout=PIPE)
         p_stat.stdout.readline()
         line = p_stat.stdout.readline()
+        self.logger.debug(line)
         rexp = re.findall('(\d\d:\d\d:\d\d) (.+?)((<defunct>)|($))', line)
         if rexp:
             time = rexp[0][0]
