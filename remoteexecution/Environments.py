@@ -704,7 +704,7 @@ class PopenExecution(ExecutionEnvironment):
         self.logger.debug(commands)
         p_stat = _POpen(commands, stdout=PIPE, stderr=PIPE)
         p_stat.wait()
-        p_stat.stdout.readline()    # dumping first line
+        self.logger.debug(p_stat.stdout.readline())    # dumping first line
         line = p_stat.stdout.readline()
         self.logger.debug(line)
 
