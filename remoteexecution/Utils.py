@@ -81,6 +81,87 @@ from random import random
 #         line = str()
 #         return line
 
+
+class RemoteExecutionLogger(object):
+    def __init__(self, **settings):
+        self.settings = settings
+        self.logger = self.create_logger(**settings)
+        for item in dir(self.logger):
+            if item[:2] != '__':
+                setattr(self, item, getattr(self.logger, item))
+
+    def duplicate(self, append_name=None, **overwrites):
+        if append_name:
+            overwrites['logger_name'] = self.settings.get('logger_name', '?') + ' - ' + append_name
+        _settings = dict()
+        _settings.update(self.settings)
+        _settings.update(overwrites)
+        return RemoteExecutionLogger(**_settings)
+
+    def write(self, s):
+        self.logger.debug(s)
+
+    def flush(self):
+        pass
+
+    @staticmethod
+    def create_logger(logger_name="RemoteExecution", log_to_file=None, log_to_stream=True, log_level='DEBUG',
+                      format_str=None):
+        if not log_to_file and not log_to_stream:  # neither stream nor logfile specified. no logger wanted.
+            return DummyLogger()
+        # create logger with 'spam_application'
+        _logger = logging.getLogger(logger_name)
+        _logger.setLevel(log_level)
+        # create formatter and add it to the handlers
+        if not format_str:
+            format_str = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        formatter = logging.Formatter(format_str)
+
+        if log_to_file is None:
+            log_to_file = ['logs/default.log']
+        elif not isinstance(log_to_file, (list, tuple)):
+            log_to_file = [log_to_file] if log_to_file else list()
+
+        if log_to_file:
+            for logfile in log_to_file:
+                make_path(logfile, ignore_last=True)
+                # create file handler which logs even debug messages
+                fh = logging.FileHandler(logfile)
+                fh.setLevel(log_level)
+                fh.setFormatter(formatter)
+                _logger.addHandler(fh)
+
+        if log_to_stream:
+            # create console handler with a higher log level
+            ch = logging.StreamHandler()
+            ch.setLevel(log_level)
+            ch.setFormatter(formatter)
+            _logger.addHandler(ch)
+
+        return _logger
+
+
+class DummyLogger(object):
+    def __init__(self):
+        self.settings = dict()
+
+    def debug(self, *args, **kwargs):
+        pass
+
+    def info(self, *args, **kwargs):
+        pass
+
+    def warning(self, *args, **kwargs):
+        pass
+
+    def error(self, *args, **kwargs):
+        pass
+
+    # noinspection PyUnusedLocal
+    def duplicate(self, **kwargs):
+        return self
+
+
 class SSHOutPipe(StringIO):
     def __init__(self, ssh_session, io_file):
         assert isinstance(ssh_session, SSHPrompt)
@@ -397,86 +478,6 @@ def make_path(path, ignore_last=False):
         abs_path += '/' + p
         if not p:
             break
-
-
-class RemoteExecutionLogger(object):
-    def __init__(self, **settings):
-        self.settings = settings
-        self.logger = self.create_logger(**settings)
-        for item in dir(self.logger):
-            if item[:2] != '__':
-                setattr(self, item, getattr(self.logger, item))
-
-    def duplicate(self, append_name=None, **overwrites):
-        if append_name:
-            overwrites['logger_name'] = self.settings.get('logger_name', '?') + ' - ' + append_name
-        _settings = dict()
-        _settings.update(self.settings)
-        _settings.update(overwrites)
-        return RemoteExecutionLogger(**_settings)
-
-    def write(self, s):
-        self.logger.debug(s)
-
-    def flush(self):
-        pass
-
-    @staticmethod
-    def create_logger(logger_name="RemoteExecution", log_to_file=None, log_to_stream=True, log_level='DEBUG',
-                      format_str=None):
-        if not log_to_file and not log_to_stream:  # neither stream nor logfile specified. no logger wanted.
-            return DummyLogger()
-        # create logger with 'spam_application'
-        _logger = logging.getLogger(logger_name)
-        _logger.setLevel(log_level)
-        # create formatter and add it to the handlers
-        if not format_str:
-            format_str = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-        formatter = logging.Formatter(format_str)
-
-        if log_to_file is None:
-            log_to_file = ['logs/default.log']
-        elif not isinstance(log_to_file, (list, tuple)):
-            log_to_file = [log_to_file] if log_to_file else list()
-
-        if log_to_file:
-            for logfile in log_to_file:
-                make_path(logfile, ignore_last=True)
-                # create file handler which logs even debug messages
-                fh = logging.FileHandler(logfile)
-                fh.setLevel(log_level)
-                fh.setFormatter(formatter)
-                _logger.addHandler(fh)
-
-        if log_to_stream:
-            # create console handler with a higher log level
-            ch = logging.StreamHandler()
-            ch.setLevel(log_level)
-            ch.setFormatter(formatter)
-            _logger.addHandler(ch)
-
-        return _logger
-
-
-class DummyLogger(object):
-    def __init__(self):
-        self.settings = dict()
-
-    def debug(self, *args, **kwargs):
-        pass
-
-    def info(self, *args, **kwargs):
-        pass
-
-    def warning(self, *args, **kwargs):
-        pass
-
-    def error(self, *args, **kwargs):
-        pass
-
-    # noinspection PyUnusedLocal
-    def duplicate(self, **kwargs):
-        return self
 
 
 class Commandline(object):
