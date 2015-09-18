@@ -288,6 +288,7 @@ class ExecutionController(EnvironmentCallMixin, object):
         self.manager.set_proxy_info(sub_id, self.local_ip, self.port)
         self.daemon.requestLoop(self.is_alive)
         self.daemon.close()
+        self.logger.info('I am Died!')
 
     def register_new_object(self, *args, **kwargs):
         wrapped_obj = self.get_wrapped_object(*args, **kwargs)
