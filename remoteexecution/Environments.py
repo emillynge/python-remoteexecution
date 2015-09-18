@@ -10,6 +10,7 @@ import json
 from subprocess import (Popen, PIPE)
 from jsoncodecs import (build_codec, HANDLERS)
 import re
+from time import sleep
 from collections import (namedtuple, defaultdict)
 from functools import partial
 
@@ -427,7 +428,7 @@ class Client2ManagerThroughSSH(SSHMixin, CommunicationEnvironment):
 
     def set_settings(self, ssh_client2manager=None, **settings):
         self.client2manager_ssh_settings = ssh_client2manager
-        self.is_attr_set('client2manager_ssh_settings', dict)
+        self.is_attr_set('client2manager_ssh_settings', (dict,))
         super(Client2ManagerThroughSSH, self).set_settings(**settings)
 
     def client2manager_tunnel(self, manager_host=None, manager_port=None):
@@ -679,9 +680,11 @@ class PopenExecution(ExecutionEnvironment):
         with open(execution_script_location) as fp:
             commands = fp.readline().split(' ')
             self.logger.debug(commands)
-        p = _POpen(commands)
+        p = _POpen(commands, stderr=True)
         self.logger.debug(p.ssh_session._owner)
         job_id = p.pid
+        sleep(1)
+        self.logger.debug(p.stderr.read())
         #p1 = _POpen(['sh', execution_script_location])
         #p2 = _POpen(['ps', '--ppid', str(p1.pid)], stdout=PIPE)
         #p2.stdout.readline()
