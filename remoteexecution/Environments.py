@@ -500,22 +500,16 @@ class Manager2ExecutorThroughSSH(SSHMixin, CommunicationEnvironment):
         ex_env = execution_environment()
         return self.ssh_prompt(self.manager2executor_ssh_settings, ex_env.executor_work_dir)
 
-    @property
-    def executor_popen(self):
-        def get_free_prompt():
-            for ssh_prompt in self.executor_popen_ssh:
-                if not ssh_prompt.is_locked():
-                    break
-            else: # executed if no break occurred, i.e no unlocked prompts found
-                ssh_prompt = self.ssh_instance_manager2executor()
-                self.executor_popen_ssh.append(ssh_prompt)
-
-
-        def _POpen(prompt, *args, **kwargs):
-            return partial(SSHPopen, work_dir=ex_env.executor_work_dir, ssh_prompt=prompt())(*args, **kwargs)
+    def executor_popen(self, *args, **kwargs):
+        for ssh_prompt in self.executor_popen_ssh:
+            if not ssh_prompt.is_locked():
+                break
+        else:   # executed if no break occurred, i.e no unlocked prompts found
+            ssh_prompt = self.ssh_instance_manager2executor()
+            self.executor_popen_ssh.append(ssh_prompt)
 
         ex_env = execution_environment()
-        return partial(_POpen, get_free_prompt)
+        return SSHPopen(*args, work_dir=ex_env.executor_work_dir, ssh_prompt=ssh_prompt, **kwargs)
 
 
 class ManagerAndExecutorOnLAN(CommunicationEnvironment):
