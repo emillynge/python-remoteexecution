@@ -1034,7 +1034,7 @@ class WrappedObject(object):
                     while self._tickets[ticket]['state'] == 'running':
                         sleep(1)
                     if self._tickets[ticket]['state'] == 'error':
-                        self.logger.warning('Encountered exception during wait')
+                        logger.warning('Encountered exception during wait')
                         raise self._tickets[ticket]['error']
                     logger.debug('Returning saved result')
                     return self._tickets[ticket]['result']
@@ -1058,8 +1058,8 @@ class WrappedObject(object):
                     self._tickets[ticket]['state'] = 'done'
                     return result
                 except Exception as e:
-                    self._tickets['state'] = 'error'
-                    self._tickets['error'] = e
+                    self._tickets[ticket]['state'] = 'error'
+                    self._tickets[ticket]['error'] = e
                     logger.error('Exception during function call', exc_info=True)
                     raise e
 
