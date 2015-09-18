@@ -731,6 +731,7 @@ class PopenExecution(ExecutionEnvironment):
 
     def job_del(self, job_id, fire_and_forget=False):
         comm_env = communication_environment()
+        comm_env.logger = self.logger
         _POpen = comm_env.executor_popen
         if fire_and_forget:
             Popen(['kill', '-9', job_id])
