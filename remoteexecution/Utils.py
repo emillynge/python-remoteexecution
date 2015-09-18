@@ -125,6 +125,13 @@ class SSHPopen(object):
         if not ssh_prompt:
             self.ssh_session = SSHPrompt()
             self.ssh_session.login(**ssh_settings)
+            self.ssh_session.set_lock(self)
+        else:
+            assert isinstance(ssh_prompt, (SSHPrompt, BashPrompt))
+            if self.ssh_session.is_locked():
+                raise Exception('Cannot use propmt, locked by another object')
+            self.ssh_session.set_lock(self)
+
         self.ssh_session.sendline('cd ' + work_dir)
         self.ssh_session.prompt()
         python_lines = ['import tempfile', 'import os', "print tempfile.mkdtemp(prefix='s082768-', suffix='-sshIO')",
@@ -156,6 +163,7 @@ class SSHPopen(object):
         self.stdin = None
 
     def poll(self):
+        self.ssh_session.require_lock(self)
         self.ssh_session.sendline('ps -p {0}; echo "END"'.format(self.pid))
         if self.ssh_session.expect(['(\d\d:\d\d:\d\d) (.+?)((<defunct>)|(\r))', 'END\r']):
             self.ssh_session.prompt()
@@ -165,10 +173,12 @@ class SSHPopen(object):
     def terminate(self):
         self.ssh_session.sendline('kill -9 {0}'.format(self.pid))
         self.ssh_session.prompt()
+        self.ssh_session.release_lock(self)
 
     def communicate(self):
         while self.poll() is None:
             sleep(1)
+        self.ssh_session.release_lock(self)
 
         stdout = self.stdout
         if stdout is not None:
@@ -191,10 +201,37 @@ class SSHPopen(object):
                                              "shutil.rmtree('{0}')".format(self.io_dir)])
 
     def __del__(self):
+        self.terminate()
         self.close_fd()
 
+class LockMixin(object):
+    def __init__(self, *args, **kwargs):
+        self._owner = None
+        super(LockMixin, self).__init__(*args, **kwargs)
 
-class SSHPrompt(pxssh):
+    def set_lock(self, obj):
+        if self._owner is not None:
+            raise Exception('Cannot lock, already locked!')
+        self._owner = id(obj)
+
+    def release_lock(self, obj):
+        if self._owner is None:
+            return
+        if id(obj) != self._owner:
+            raise Exception('Cannot release. not locked by this object')
+        self._owner = None
+
+    def has_lock(self, obj):
+        return id(obj) == self._owner
+
+    def is_locked(self):
+        return self._owner is not None
+
+    def require_lock(self, obj):
+        InvalidUserInput.compare('obj', self._owner, id(obj), 'Not locked by this object')
+
+class SSHPrompt(LockMixin, pxssh):
+
     def login(self, **kwargs):
         """
         Adapter class that converts TunnelForwarder SSH credentials to pxssh type
@@ -232,7 +269,7 @@ class SSHPrompt(pxssh):
         self.close()
 
 
-class BashPrompt(spawn):
+class BashPrompt(LockMixin, spawn):
     def __init__(self):
         self.PROMPT = "[\$\#] "
         super(BashPrompt, self).__init__('bash -i')

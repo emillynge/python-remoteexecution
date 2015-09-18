@@ -475,7 +475,7 @@ class Executor2ManagerThroughSSH(SSHMixin, CommunicationEnvironment):
 class Manager2ExecutorThroughSSH(SSHMixin, CommunicationEnvironment):
     def __init__(self):
         self.manager2executor_ssh_settings = None
-        self.executor_popen_ssh = None
+        self.executor_popen_ssh = list()
         super(Manager2ExecutorThroughSSH, self).__init__()
 
     def set_settings(self, ssh_manager2executor=None, **settings):
@@ -502,10 +502,14 @@ class Manager2ExecutorThroughSSH(SSHMixin, CommunicationEnvironment):
 
     @property
     def executor_popen(self):
-        if True:#not self.executor_popen_ssh:
-            self.executor_popen_ssh = self.ssh_instance_manager2executor()
+        for ssh_prompt in self.executor_popen_ssh:
+            if not ssh_prompt.is_locked():
+                break
+        else: # executed if no break occurred, i.e no unlocked prompts found
+            ssh_prompt = self.ssh_instance_manager2executor()
+
         ex_env = execution_environment()
-        return partial(SSHPopen, work_dir=ex_env.executor_work_dir, ssh_prompt=self.executor_popen_ssh)
+        return partial(SSHPopen, work_dir=ex_env.executor_work_dir, ssh_prompt=ssh_prompt)
 
 
 class ManagerAndExecutorOnLAN(CommunicationEnvironment):
