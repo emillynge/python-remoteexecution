@@ -510,8 +510,9 @@ class Manager2ExecutorThroughSSH(SSHMixin, CommunicationEnvironment):
                 ssh_prompt = self.ssh_instance_manager2executor()
                 self.executor_popen_ssh.append(ssh_prompt)
 
+
         def _POpen(prompt, *args, **kwargs):
-            return partial(SSHPopen, work_dir=ex_env.executor_work_dir, ssh_prompt=prompt())
+            return partial(SSHPopen, work_dir=ex_env.executor_work_dir, ssh_prompt=prompt())(*args, **kwargs)
 
         ex_env = execution_environment()
         return partial(_POpen, get_free_prompt)
