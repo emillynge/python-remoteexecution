@@ -158,7 +158,7 @@ class DummyLogger(object):
         pass
 
     # noinspection PyUnusedLocal
-    def duplicate(self, **kwargs):
+    def duplicate(self,*args, **kwargs):
         return self
 
 
