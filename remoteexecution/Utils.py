@@ -1009,7 +1009,7 @@ class WrappedObject(object):
             ser_env = serializing_environment()
 
             def call(*args, **kwargs):
-                ticket = args[0][6]
+                ticket = args[0][:6]
                 faf = args[1]
                 state = self._tickets[ticket].get('state', 'first')
                 if state != 'first':
