@@ -204,7 +204,7 @@ class SSHPopen(object):
     # noinspection PyUnusedLocal
     def __init__(self, commands, work_dir='.', ssh_prompt=None, ssh_settings=None, stdout=None, stderr=None,
                  stdin=None, logger=DummyLogger()):
-
+        self.logger = logger
         self.ssh_session = ssh_prompt
         if not ssh_prompt:
             self.ssh_session = SSHPrompt()
