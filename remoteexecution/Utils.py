@@ -90,8 +90,10 @@ class RemoteExecutionLogger(object):
             if item[:2] != '__':
                 setattr(self, item, getattr(self.logger, item))
 
-    def duplicate(self, append_name=None, **overwrites):
+    def duplicate(self, append_name=None, append_color = None, **overwrites):
         if append_name:
+            if append_color:
+                append_name = '\x1b[3{0};1m {1} \x1b[0m'.format((append_color % 6) + 1, append_name)
             overwrites['logger_name'] = self.settings.get('logger_name', '?') + ' - ' + append_name
         _settings = dict()
         _settings.update(self.settings)
@@ -1027,18 +1029,21 @@ class WrappedObject(object):
                 faf = args[1]
                 state = self._tickets[ticket].get('state', 'first')
                 if state != 'first':
-                    self.logger.debug('{0} - already called. state: {1}\t Waiting...'.format(ticket, state))
+                    logger = self._tickets[ticket]['logger']
+                    logger.debug('already called. state: {0}\t Waiting...'.format(state))
                     while self._tickets[ticket]['state'] == 'running':
                         sleep(1)
                     if self._tickets[ticket]['state'] == 'error':
                         self.logger.warning('Encountered exception during wait')
                         raise self._tickets[ticket]['error']
-                    self.logger.debug('{0} - Returning saved result'.format(ticket))
+                    logger.debug('Returning saved result')
                     return self._tickets[ticket]['result']
-
+                else:
+                    logger = self.logger.duplicate(ticket, len(self._tickets))
+                    self._tickets[ticket]['logger'] = logger
                 args = args[2:]
-                self.logger.debug('{3} - Calling local method {2} with : {0} , {1}'.format(truncate_object(args),
-                                                                                     truncate_object(kwargs), item, ticket))
+                logger.debug('Calling local method {2} with : {0} , {1}'.format(truncate_object(args),
+                                                                                     truncate_object(kwargs), item))
                 if ser_env.serialize_wrapper:
                     decoded = ser_env.decoder(*args)
                     args = tuple(decoded['args'])
@@ -1046,7 +1051,7 @@ class WrappedObject(object):
                 try:
                     self._tickets[ticket]['state'] = 'running'
                     result = super(WrappedObject, self).__getattribute__(item).__call__(*args, **kwargs)
-                    self.logger.debug('{2} - Recieved {1} from local method {0}'.format(item, truncate_object(result), ticket))
+                    logger.debug('Recieved {1} from local method {0}'.format(item, truncate_object(result)))
                     if ser_env.serialize_wrapper:
                         result = ser_env.encoder(result)
                     self._tickets[ticket]['result'] = result
@@ -1055,7 +1060,7 @@ class WrappedObject(object):
                 except Exception as e:
                     self._tickets['state'] = 'error'
                     self._tickets['error'] = e
-                    self.logger.error('{0} - Exception during function call'.format(ticket), exc_info=True)
+                    logger.error('Exception during function call', exc_info=True)
                     raise e
 
             return call
