@@ -289,11 +289,10 @@ class SSHPopen(object):
             self.stderr.io_file_open = False
         if self.stdin:
             self.stdin.io_file_open = False
-        #self.ssh_session.send_python_script(["import shutil",
-        #                                     "shutil.rmtree('{0}')".format(self.io_dir)])
+        self.ssh_session.send_python_script(["import shutil",
+                                             "shutil.rmtree('{0}')".format(self.io_dir)])
 
     def __del__(self):
-        self.terminate()
         self.close_fd()
 
 class LockMixin(object):

@@ -38,4 +38,4 @@ try:
         with inst_gen([10,10]) as arr:
             print arr
 finally:
-    client.stop_manager()
+    pass#client.stop_manager()
