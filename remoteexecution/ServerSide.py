@@ -198,7 +198,7 @@ class Manager(EnvironmentCallMixin, object):
             if self.has_reached_state(sub_id, state):
                 return True
             self.logger.debug('sleeping for {0} seconds while waiting for {1}'.format(sleep_interval, state))
-            if not timer.sleep():  # evaluates to true if timer is timed out
+            if timer.sleep():  # evaluates to true if timer is timed out
                 return False
 
     @staticmethod
