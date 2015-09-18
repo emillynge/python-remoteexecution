@@ -1009,7 +1009,7 @@ class WrappedObject(object):
             ser_env = serializing_environment()
 
             def call(*args, **kwargs):
-                ticket = args[0]
+                ticket = args[0][6]
                 faf = args[1]
                 state = self._tickets[ticket].get('state', 'first')
                 if state != 'first':
@@ -1019,7 +1019,7 @@ class WrappedObject(object):
                     if self._tickets[ticket]['state'] == 'error':
                         self.logger.warning('Encountered exception during wait')
                         raise self._tickets[ticket]['error']
-                    self.logger.debug('Returning saved result to ticket {0}.'.format(ticket))
+                    self.logger.debug('{0} - Returning saved result'.format(ticket))
                     return self._tickets[ticket]['result']
 
                 args = args[2:]
