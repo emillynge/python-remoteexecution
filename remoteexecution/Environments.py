@@ -681,8 +681,9 @@ class PopenExecution(ExecutionEnvironment):
         with open(execution_script_location) as fp:
             commands = fp.readline().split(' ')
             self.logger.debug(commands)
-        p = _POpen(commands, stderr=True)
+        p = _POpen(commands, stderr=True, stdout=True)
         sleep(5)
+        out_lines = p.stdout.read()
         err_lines = p.stderr.read()
         if err_lines:
             self.logger.warning(err_lines)
