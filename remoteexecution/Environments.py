@@ -675,6 +675,7 @@ class PopenExecution(ExecutionEnvironment):
     def job_start(self, execution_script_location):
         comm_env = communication_environment()
         _POpen = comm_env.executor_popen
+        self.logger.debug(_POpen._owner)
         with open(execution_script_location) as fp:
             commands = fp.readline().split(' ')
             self.logger.debug(commands)
@@ -691,6 +692,7 @@ class PopenExecution(ExecutionEnvironment):
         self.logger.debug(job_id)
         comm_env = communication_environment()
         _POpen = comm_env.executor_popen
+        self.logger.debug(_POpen._owner)
         commands = ['ps', '-p', job_id]
         self.logger.debug(commands)
         p_stat = _POpen(commands, stdout=PIPE, stderr=PIPE)
@@ -698,6 +700,7 @@ class PopenExecution(ExecutionEnvironment):
         line = p_stat.stdout.readline()
         self.logger.debug(line)
         err_lines = p_stat.stderr.read()
+        self.logger.debug(p_stat.communicate())
         if err_lines:
             self.logger.warning(err_lines)
         rexp = re.findall('(\d\d:\d\d:\d\d) (.+?)((<defunct>)|($))', line)
