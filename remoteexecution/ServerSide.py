@@ -222,6 +222,7 @@ class Manager(EnvironmentCallMixin, object):
         elif state == 'C':
             self.subs[sub_id]['state'] = 'completed'
 
+        self.logger.debug('Submit {0} is in {1} state'.format(sub_id, self.subs[sub_id]['state']))
         return self.subs[sub_id]['state'], time_sec
 
     @staticmethod
