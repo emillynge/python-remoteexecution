@@ -112,8 +112,10 @@ class SSHOutPipe(StringIO):
         return StringIO.read(self, **kwargs)
 
     def readline(self, **kwargs):
+        pos = self.pos
         if self.len == self.pos and not self.buflist:
             self.fill_buffer()
+        self.pos = pos
         return StringIO.readline(self, **kwargs)
 
 
