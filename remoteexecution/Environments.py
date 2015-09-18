@@ -693,10 +693,13 @@ class PopenExecution(ExecutionEnvironment):
         _POpen = comm_env.executor_popen
         commands = ['ps', '-p', job_id]
         self.logger.debug(commands)
-        p_stat = _POpen(commands, stdout=PIPE)
-        p_stat.stdout.readline()
+        p_stat = _POpen(commands, stdout=PIPE, stderr=PIPE)
+        self.logger.debug(p_stat.stdout.readline())
         line = p_stat.stdout.readline()
         self.logger.debug(line)
+        err_lines = p_stat.stderr.read()
+        if err_lines:
+            self.logger.warning(err_lines)
         rexp = re.findall('(\d\d:\d\d:\d\d) (.+?)((<defunct>)|($))', line)
         if rexp:
             time = rexp[0][0]
