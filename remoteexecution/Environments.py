@@ -681,10 +681,7 @@ class PopenExecution(ExecutionEnvironment):
         with open(execution_script_location) as fp:
             commands = fp.readline().split(' ')
             self.logger.debug(commands)
-        p = _POpen(commands, stderr=True, stdout=True)
-        sleep(5)
-        out_lines = p.stdout.read()
-        self.logger.warning(out_lines)
+        p = _POpen(commands, stderr=True, stdout=False)
         err_lines = p.stderr.read()
         if err_lines:
             self.logger.warning(err_lines)
@@ -703,7 +700,7 @@ class PopenExecution(ExecutionEnvironment):
         commands = ['ps', '-p', job_id]
         self.logger.debug(commands)
         p_stat = _POpen(commands, stdout=PIPE, stderr=PIPE)
-        p_stat.wait()
+        p_stat.wait(timeout=5)
         self.logger.debug(p_stat.stdout.readline())    # dumping first line
         line = p_stat.stdout.readline()
         self.logger.debug(line)

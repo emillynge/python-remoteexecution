@@ -23,7 +23,7 @@ class Manager(EnvironmentCallMixin, object):
                            'completed': 5,
                            'orphaned': 6}
         self.logger = logger.duplicate(logger_name='Manager') if logger else DummyLogger()
-        self.env_logger = self.logger.duplicate('Env')
+        self.env_logger = self.logger.duplicate('Env', log_level='WARNING')
         self.running = False
         self.latest_sub_id = -1
         self.subs = defaultdict(dict)
@@ -49,6 +49,10 @@ class Manager(EnvironmentCallMixin, object):
             Exception('This submission is not in "ready" state. No controller available')
         return WrappedProxy('PYRO:qsub.execution.controller@{ip}:{port}'.format(**self.subs[sub_id]['proxy_info']))
 
+    def update_state(self, sub_id, new_state):
+        if not self.has_reached_state(sub_id, new_state):
+            self.subs[sub_id]['state'] = new_state
+
     def sub_shut(self, sub_id):
         """
         Shutdown a submission
@@ -56,7 +60,7 @@ class Manager(EnvironmentCallMixin, object):
         :return: int - 0 for successful, 1 for forced
         """
         if not self.has_reached_state(sub_id, 'submitted'):
-            self.subs['state'] = 'completed'
+            self.update_state(sub_id, 'completed')
             self.logger.info('Trashing staged submit {0}'.format(sub_id))
             return 0
 
@@ -80,7 +84,7 @@ class Manager(EnvironmentCallMixin, object):
                                       logger=self.logger.duplicate(append_name='Exec'))
 
             controller.shutdown()  # putting submit into shutdown state
-            self.subs[sub_id]['state'] = 'shutdown'
+            self.update_state(sub_id, 'shutdown')
 
         if not self.wait_for_state(sub_id, 'completed', 5.5):  # after shutdown. Wait for complete
             self.logger.info('submit {0} stuck in {1}'.format(sub_id, self.get_state(sub_id)))
@@ -102,7 +106,7 @@ class Manager(EnvironmentCallMixin, object):
                 ex_env = execution_environment()
                 (stdout, stderr) = ex_env.job_del(self.subs[sub_id]['job_id'])
                 self.logger.debug('Removing job {0} from queue: {1}'.format(sub_id, (stdout, stderr)))
-                self.subs[sub_id]['state'] = 'completed'
+                self.update_state(sub_id, 'completed')
                 return
             self.logger.debug('job_id {0} not in subs'.format(self.subs[sub_id]))
             return
@@ -117,7 +121,7 @@ class Manager(EnvironmentCallMixin, object):
             logfile - str
         """
         self.latest_sub_id += 1
-        self.subs[self.latest_sub_id]['state'] = 'requested'
+        self.update_state(self.latest_sub_id, 'requested')
         self.logger.info("Submission id: {0} granted".format(self.latest_sub_id))
         self.sub_log_clean(self.latest_sub_id)
         return self.latest_sub_id, self.logfile(self.latest_sub_id)
@@ -143,7 +147,7 @@ class Manager(EnvironmentCallMixin, object):
         """
         with open(self.subid2sh(sub_id), 'w') as fp:
             fp.write(script)
-        self.subs[sub_id]['state'] = 'staged'
+        self.update_state(sub_id, 'staged')
 
     def sub_start(self, sub_id):
         if self.has_reached_state(sub_id, 'submitted'):
@@ -160,6 +164,7 @@ class Manager(EnvironmentCallMixin, object):
     def set_proxy_info(self, sub_id, daemon_ip, daemon_port):
         self.subs[sub_id]['proxy_info'] = {'host': daemon_ip, 'port': int(daemon_port)}
         self.subs[sub_id]['state'] = 'ready'
+
         self.logger.info('proxy info on submit {0} recieved: {host}:{port}'.format(sub_id,
                                                                                    **self.subs[sub_id]['proxy_info']))
 
@@ -219,6 +224,7 @@ class Manager(EnvironmentCallMixin, object):
         elif state == 'R':
             if not self.has_reached_state(sub_id, 'running'):
                 self.subs[sub_id]['state'] = 'running'
+
         elif state == 'C':
             self.subs[sub_id]['state'] = 'completed'
 

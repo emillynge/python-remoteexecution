@@ -251,9 +251,12 @@ class SSHPopen(object):
         self.logger.debug(line)
         self.ssh_session.sendline(line)
 
-    def wait(self):
+    def wait(self, timeout=-1):
+        start = time()
         while self.poll() is None:
             sleep(1)
+            if timeout > 0 and timeout > time() - start:
+                raise RuntimeError('Timeout exceeded')
 
     def poll(self):
         self.ssh_session.require_lock(self)
