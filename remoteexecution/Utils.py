@@ -1176,7 +1176,7 @@ class Timer(object):
 
     @property
     def elapsed(self):
-        self._elapsed = self.start - time()
+        self._elapsed =  time() - self.start
         return self._elapsed
 
     def sleep(self):
