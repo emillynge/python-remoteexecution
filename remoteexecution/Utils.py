@@ -164,6 +164,10 @@ class SSHPopen(object):
 
         self.stdin = None
 
+    def wait(self):
+        while self.poll() is None:
+            sleep(1)
+
     def poll(self):
         self.ssh_session.require_lock(self)
         self.ssh_session.sendline('ps -p {0}; echo "END"'.format(self.pid))
@@ -178,8 +182,7 @@ class SSHPopen(object):
         self.ssh_session.release_lock(self)
 
     def communicate(self):
-        while self.poll() is None:
-            sleep(1)
+        self.wait()
         self.ssh_session.release_lock(self)
 
         stdout = self.stdout

@@ -681,10 +681,7 @@ class PopenExecution(ExecutionEnvironment):
             commands = fp.readline().split(' ')
             self.logger.debug(commands)
         p = _POpen(commands, stderr=True)
-        self.logger.debug(p.ssh_session._owner)
         job_id = p.pid
-        sleep(1)
-        self.logger.debug(p.stderr.read())
         #p1 = _POpen(['sh', execution_script_location])
         #p2 = _POpen(['ps', '--ppid', str(p1.pid)], stdout=PIPE)
         #p2.stdout.readline()
@@ -693,20 +690,19 @@ class PopenExecution(ExecutionEnvironment):
         return job_id
 
     def job_stat(self, job_id):
-        self.logger.debug(job_id)
         comm_env = communication_environment()
         _POpen = comm_env.executor_popen
         commands = ['ps', '-p', job_id]
         self.logger.debug(commands)
         p_stat = _POpen(commands, stdout=PIPE, stderr=PIPE)
-        self.logger.debug(p_stat.ssh_session._owner)
-        self.logger.debug(p_stat.stdout.readline())
+        p_stat.wait()
+        p_stat.stdout.readline()    # dumping first line
         line = p_stat.stdout.readline()
-        self.logger.debug(line)
+
         err_lines = p_stat.stderr.read()
-        self.logger.debug(p_stat.communicate())
         if err_lines:
             self.logger.warning(err_lines)
+
         rexp = re.findall('(\d\d:\d\d:\d\d) (.+?)((<defunct>)|($))', line)
         if rexp:
             time = rexp[0][0]
